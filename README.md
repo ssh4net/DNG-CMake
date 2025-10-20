@@ -18,14 +18,14 @@ Extract the SDK to your workspace or specify its location during CMake configura
 ### System Libraries
 
 The build system uses the following system libraries:
-- **zlib** (ZIP compression)
+- **zlib** (ZIP compression) /or zlib-ng in zlib compatible mode/
 - **libjpeg** (JPEG support)
 - **libjxl** (JPEG-XL support)
 - **libexpat** (XML parsing)
 - **libbrotli** (Brotli compression for JPEG-XL)
 - **libhwy** (Google Highway SIMD library for JPEG-XL)
 - **Boost** (uuid) - optional, can use system Boost library
-- **XMP SDK** (optional, not tested - note that official XMP SDK differs from the XMP SDK included in DNG SDK archive)
+- **XMP SDK** (optional, can use system library /not tested/ - note that official XMP SDK differs from the XMP SDK included in DNG SDK archive)
 
 ### Platform Requirements
 
@@ -180,7 +180,7 @@ The build produces static libraries (tested):
 - **Tested platforms:** Windows (MSVC), Linux (Clang)
 - **Tested build types:** Static libraries only
 - **Tested features:** XMP, JPEG-XL, JPEG, dng_validate
-- **Not tested:** GCC compilation, dynamic libraries, system XMP SDK
+- **Not tested:** GCC compilation, dynamic libraries, system XMP SDK or Boost
 
 ## Troubleshooting
 
@@ -190,7 +190,7 @@ Ensure all required development packages are installed. The build system will at
 
 ### WSL2 Users
 
-Make sure you have the latest Ubuntu distribution and all packages are up to date:
+Make sure you have the latest distribution and all packages are up to date:
 ```bash
 sudo apt update && sudo apt upgrade
 ```
