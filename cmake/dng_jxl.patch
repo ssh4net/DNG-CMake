@@ -1,0 +1,28 @@
+diff --git a/dng_jxl.cpp b/dng_jxl.cpp
+index 5625d98..52831d2 100755
+--- a/dng_jxl.cpp
++++ b/dng_jxl.cpp
+@@ -2289,7 +2289,6 @@ void dng_jxl_decoder::Decode (dng_host &host,
+ 			
+ 			if (JXL_DEC_SUCCESS ==
+ 				JxlDecoderGetColorAsEncodedProfile (dec,
+-													&format,
+ 													JXL_COLOR_PROFILE_TARGET_ORIGINAL,
+ 													&color_encoding))
+ 				{
+@@ -2438,7 +2437,6 @@ void dng_jxl_decoder::Decode (dng_host &host,
+ 
+ 				CheckResult (JxlDecoderGetICCProfileSize
+ 							 (dec,
+-							  &format,
+ 							  JXL_COLOR_PROFILE_TARGET_ORIGINAL,
+ 							  &profile_size),
+ 							 "JxlDecoderGetICCProfileSize",
+@@ -2465,7 +2463,6 @@ void dng_jxl_decoder::Decode (dng_host &host,
+ 				
+ 				CheckResult (JxlDecoderGetColorAsICCProfile
+ 							 (dec,
+-							  &format,
+ 							  JXL_COLOR_PROFILE_TARGET_ORIGINAL,
+ 							  profile,
+ 							  profile_size),
