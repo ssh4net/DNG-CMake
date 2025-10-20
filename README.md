@@ -11,9 +11,9 @@ This CMake build system allows building Adobe DNG SDK 1.7.1 using system-provide
 ### Adobe DNG SDK
 
 Download Adobe DNG SDK 1.7.1 from Adobe:
-[link_placeholder]
+[Digital Negative (DNG)](https://helpx.adobe.com/camera-raw/digital-negative.html)
 
-Extract the SDK to your workspace or specify its location during CMake configuration.
+Extract the SDK to the same folder as DNG-Cmake.
 
 ### System Libraries
 
