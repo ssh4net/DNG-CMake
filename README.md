@@ -18,25 +18,25 @@ Extract the SDK to the same folder as DNG-Cmake.
 ### System Libraries
 
 The build system uses the following system libraries:
-- **zlib** (ZIP compression) /or zlib-ng in zlib compatible mode/
-- **libjpeg** (JPEG support)
-- **libjxl** (JPEG-XL support)
+- **zlib** (ZIP compression) zlib or zlib-ng in zlib compatible mode
+- **libjpeg** (JPEG support) jpeg or turbo-jpeg
+- **libjxl** (JPEGXL support)
 - **libexpat** (XML parsing)
-- **libbrotli** (Brotli compression for JPEG-XL)
-- **libhwy** (Google Highway SIMD library for JPEG-XL)
-- **Boost** (uuid) - optional, can use system Boost library
-- **XMP SDK** (optional, can use system library /not tested/ - note that official XMP SDK differs from the XMP SDK included in DNG SDK archive)
+- **libbrotli** (Brotli compression for JPEGXL)
+- **libhwy** (Google Highway SIMD library for JPEGXL)
+- **Boost** (uuid) - bundled in XMP SDK or optionally can use system Boost library
+- **XMP SDK** (can use system library /not tested/ - note that official XMP SDK differs from the XMP SDK included in DNG SDK archive)
 
 ### Platform Requirements
 
 #### Windows (MSVC)
-- Visual Studio 2022 or later
+- Visual Studio 2017 or later
 - CMake 3.16 or later
 - Ninja build system (optional)
 
 Supported configurations:
 - CMake + MSVC
-- CMake + Visual Studio 2022 Generator
+- CMake + Visual Studio 2017 Generator
 - Ninja + MSVC
 
 #### Linux
@@ -143,7 +143,7 @@ ninja
 The build system supports enabling/disabling features (tested configurations noted):
 
 - `-DQMAKE_PROJECT=ON/OFF` - Build XMP support (tested: ON)
-- `-DUSE_LIBJXL=ON/OFF` - Enable JPEG-XL support (tested: ON)
+- `-DUSE_LIBJXL=ON/OFF` - Enable JPEGXL support (tested: ON)
 - `-DUSE_LIBJPEG=ON/OFF` - Enable JPEG support (tested: ON)
 - `-DBUILD_DNG_VALIDATE=ON/OFF` - Build dng_validate tool (tested: ON)
 - Additional options may be available - see CMakeLists.txt
@@ -162,7 +162,7 @@ The build produces static libraries (tested):
 
 - `CMakeLists.txt` - Root CMake configuration
 - `cmake/` - CMake patches and helper files
-  - `dng_jxl.patch` - JPEG-XL integration patch
+  - `dng_jxl.patch` - JPEGXL integration patch
 - `dng_sdk/` - Adobe DNG SDK source (user-provided)
 - `xmp/` - XMP SDK source (from DNG SDK archive)
 
@@ -170,7 +170,7 @@ The build produces static libraries (tested):
 
 - This build system prioritizes system libraries over bundled SDK sources for better performance and security
 - All necessary preprocessor definitions and include paths from original Visual Studio projects are preserved
-- JPEG-XL and JPEG support are enabled by default
+- JPEGXL and JPEG support are enabled by default
 - XMP metadata support is fully integrated using the XMP SDK from DNG SDK archive
 - System XMP SDK support is available but not tested (official XMP SDK has differences)
 - System Boost library (uuid) can be used instead of bundled sources
@@ -179,7 +179,7 @@ The build produces static libraries (tested):
 
 - **Tested platforms:** Windows (MSVC), Linux (Clang)
 - **Tested build types:** Static libraries only
-- **Tested features:** XMP, JPEG-XL, JPEG, dng_validate
+- **Tested features:** XMP, JPEGXL, JPEG, dng_validate
 - **Not tested:** GCC compilation, dynamic libraries, system XMP SDK or Boost
 
 ## Troubleshooting
