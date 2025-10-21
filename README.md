@@ -4,7 +4,7 @@ CMake build system for Adobe DNG SDK 1.7.1 with support for system libraries and
 
 ## Overview
 
-This CMake build system allows building Adobe DNG SDK 1.7.1 using system-provided libraries instead of the bundled sources that may be obsolete or inefficient. It prioritizes using modern system libraries for ZIP, JPEG-XL, JPEG, and optionally Boost (uuid) and XMP.
+This CMake build system allows building Adobe DNG SDK 1.7.1 using system-provided libraries instead of the bundled sources that may be obsolete or inefficient. It prioritizes using modern system libraries for ZIP, JPEGXL, JPEG, and optionally Boost (uuid) and XMP.
 
 ## Prerequisites
 
