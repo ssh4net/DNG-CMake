@@ -86,15 +86,6 @@ set_source_files_properties(
     PROPERTIES COMPILE_DEFINITIONS "qDNGValidate=1"
 )
 
-# Locate libjxl headers (required when qDNGUseLibJXL=1)
-find_path(JXL_INCLUDE_DIR NAMES jxl/color_encoding.h PATH_SUFFIXES include)
-if(NOT JXL_INCLUDE_DIR)
-    message(FATAL_ERROR "libjxl headers not found (jxl/color_encoding.h). Set CMAKE_PREFIX_PATH to the JXL install prefix or provide headers in the repository.")
-endif()
-
-target_include_directories(dng_sdk PRIVATE
-    ${JXL_INCLUDE_DIR}
-)
 
 # DNG SDK specific definitions from top-level options
 if(DNG_WITH_XMP)
@@ -124,21 +115,332 @@ if(DNG_WITH_JXL)
 endif()
 target_compile_definitions(dng_sdk PRIVATE qDNGValidateTarget=0 qDNGValidate=0)
 
-# Link with XMP libraries if enabled
-target_link_libraries(dng_sdk PRIVATE Threads::Threads)
+# Link with dependencies
+# Use PUBLIC for static libraries so downstream projects get transitive dependencies
+target_link_libraries(dng_sdk PUBLIC Threads::Threads)
+
+# Link XMP libraries if enabled
 if(DNG_WITH_XMP)
-    target_link_libraries(dng_sdk PRIVATE XMPCoreStatic XMPFilesStatic)
+    target_link_libraries(dng_sdk PUBLIC XMPCoreStatic XMPFilesStatic)
 endif()
 
-# Install headers
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/dng_sdk/source/
-    DESTINATION include/dng_sdk
-    FILES_MATCHING PATTERN "*.h"
-)
+# Link JPEG library if enabled
+if(DNG_WITH_JPEG)
+    if(DNG_BUNDLED_JPEG)
+        # Use bundled libjpeg - create a simple target
+        if(NOT TARGET jpeg::jpeg)
+            add_library(jpeg::jpeg INTERFACE IMPORTED)
+            target_include_directories(jpeg::jpeg INTERFACE ${CMAKE_SOURCE_DIR}/libjpeg)
+            # Note: For bundled JPEG, you would need to build the library separately
+            # This is a placeholder - actual implementation would require building libjpeg
+            message(WARNING "Bundled JPEG support requires building libjpeg separately")
+        endif()
+        target_link_libraries(dng_sdk PUBLIC jpeg::jpeg)
+    else()
+        # Use system libjpeg
+        find_package(JPEG REQUIRED)
+        target_link_libraries(dng_sdk PUBLIC JPEG::JPEG)
+    endif()
+endif()
 
-# Install the static library
-install(TARGETS dng_sdk
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
+# Link JPEG-XL and dependencies if enabled
+if(DNG_WITH_JXL)
+    if(DNG_BUNDLED_JXL)
+        # Use bundled libjxl - create targets for bundled libraries
+        if(NOT TARGET jxl::jxl)
+            add_library(jxl::jxl INTERFACE IMPORTED)
+            target_include_directories(jxl::jxl INTERFACE 
+                ${CMAKE_SOURCE_DIR}/libjxl/libjxl/lib/include
+                ${CMAKE_SOURCE_DIR}/libjxl/client_projects/include
+            )
+            # Note: For bundled JXL, you would need to build the library separately
+            # This is a placeholder - actual implementation would require building libjxl
+            message(WARNING "Bundled JXL support requires building libjxl separately")
+        endif()
+        
+        # Create placeholder targets for JXL dependencies
+        if(NOT TARGET jxl::jxl_threads)
+            add_library(jxl::jxl_threads INTERFACE IMPORTED)
+        endif()
+        if(NOT TARGET hwy::hwy)
+            add_library(hwy::hwy INTERFACE IMPORTED)
+        endif()
+        if(NOT TARGET brotli::brotlicommon)
+            add_library(brotli::brotlicommon INTERFACE IMPORTED)
+        endif()
+        if(NOT TARGET brotli::brotlidec)
+            add_library(brotli::brotlidec INTERFACE IMPORTED)
+        endif()
+        if(NOT TARGET brotli::brotlienc)
+            add_library(brotli::brotlienc INTERFACE IMPORTED)
+        endif()
+        
+        target_link_libraries(dng_sdk PUBLIC
+            jxl::jxl
+            jxl::jxl_threads
+            hwy::hwy
+            brotli::brotlidec
+            brotli::brotlienc
+            brotli::brotlicommon
+        )
+    else()
+        # Use system libjxl
+        # Find JXL headers for building - exclude bundled sources
+        find_path(JXL_INCLUDE_DIR
+            NAMES jxl/color_encoding.h
+            PATH_SUFFIXES include
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            REQUIRED
+        )
+        if(NOT JXL_INCLUDE_DIR)
+            # Fallback to system paths if not found in CMAKE_PREFIX_PATH
+            find_path(JXL_INCLUDE_DIR
+                NAMES jxl/color_encoding.h
+                PATH_SUFFIXES include
+                REQUIRED
+            )
+        endif()
+        target_include_directories(dng_sdk PRIVATE ${JXL_INCLUDE_DIR})
+
+        # Link JXL libraries - prefer system libraries over bundled
+        # Use NO_DEFAULT_PATH first to search only CMAKE_PREFIX_PATH
+        find_library(JXL_LIBRARY_RELEASE
+            NAMES jxl
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        find_library(JXL_LIBRARY_DEBUG
+            NAMES jxld
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        if(NOT JXL_LIBRARY_RELEASE AND NOT JXL_LIBRARY_DEBUG)
+            # Fallback to default search if not in CMAKE_PREFIX_PATH
+            find_library(JXL_LIBRARY_RELEASE NAMES jxl)
+            find_library(JXL_LIBRARY_DEBUG NAMES jxld)
+        endif()
+
+        find_library(JXL_THREADS_LIBRARY_RELEASE
+            NAMES jxl_threads
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        find_library(JXL_THREADS_LIBRARY_DEBUG
+            NAMES jxl_threadsd
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        if(NOT JXL_THREADS_LIBRARY_RELEASE AND NOT JXL_THREADS_LIBRARY_DEBUG)
+            find_library(JXL_THREADS_LIBRARY_RELEASE NAMES jxl_threads)
+            find_library(JXL_THREADS_LIBRARY_DEBUG NAMES jxl_threadsd)
+        endif()
+
+        find_library(JXL_CMS_LIBRARY_RELEASE
+            NAMES jxl_cms
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        find_library(JXL_CMS_LIBRARY_DEBUG
+            NAMES jxl_cmsd
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        if(NOT JXL_CMS_LIBRARY_RELEASE AND NOT JXL_CMS_LIBRARY_DEBUG)
+            find_library(JXL_CMS_LIBRARY_RELEASE NAMES jxl_cms)
+            find_library(JXL_CMS_LIBRARY_DEBUG NAMES jxl_cmsd)
+        endif()
+
+        find_library(HWY_LIBRARY_RELEASE
+            NAMES hwy
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        find_library(HWY_LIBRARY_DEBUG
+            NAMES hwyd
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        if(NOT HWY_LIBRARY_RELEASE AND NOT HWY_LIBRARY_DEBUG)
+            find_library(HWY_LIBRARY_RELEASE NAMES hwy)
+            find_library(HWY_LIBRARY_DEBUG NAMES hwyd)
+        endif()
+
+        find_library(BROTLI_COMMON_LIBRARY_RELEASE
+            NAMES brotlicommon
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        find_library(BROTLI_COMMON_LIBRARY_DEBUG
+            NAMES brotlicommond
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        if(NOT BROTLI_COMMON_LIBRARY_RELEASE AND NOT BROTLI_COMMON_LIBRARY_DEBUG)
+            find_library(BROTLI_COMMON_LIBRARY_RELEASE NAMES brotlicommon)
+            find_library(BROTLI_COMMON_LIBRARY_DEBUG NAMES brotlicommond)
+        endif()
+
+        find_library(BROTLI_DEC_LIBRARY_RELEASE
+            NAMES brotlidec
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        find_library(BROTLI_DEC_LIBRARY_DEBUG
+            NAMES brotlidecd
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        if(NOT BROTLI_DEC_LIBRARY_RELEASE AND NOT BROTLI_DEC_LIBRARY_DEBUG)
+            find_library(BROTLI_DEC_LIBRARY_RELEASE NAMES brotlidec)
+            find_library(BROTLI_DEC_LIBRARY_DEBUG NAMES brotlidecd)
+        endif()
+
+        find_library(BROTLI_ENC_LIBRARY_RELEASE
+            NAMES brotlienc
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        find_library(BROTLI_ENC_LIBRARY_DEBUG
+            NAMES brotliencd
+            NO_DEFAULT_PATH
+            PATHS ${CMAKE_PREFIX_PATH}
+            PATH_SUFFIXES lib lib64
+        )
+        if(NOT BROTLI_ENC_LIBRARY_RELEASE AND NOT BROTLI_ENC_LIBRARY_DEBUG)
+            find_library(BROTLI_ENC_LIBRARY_RELEASE NAMES brotlienc)
+            find_library(BROTLI_ENC_LIBRARY_DEBUG NAMES brotliencd)
+        endif()
+
+        # Create imported targets with generator expressions for proper debug/release selection
+        if(NOT TARGET jxl::jxl)
+            add_library(jxl::jxl UNKNOWN IMPORTED)
+            if(JXL_LIBRARY_RELEASE AND JXL_LIBRARY_DEBUG)
+                set_target_properties(jxl::jxl PROPERTIES
+                    IMPORTED_LOCATION_RELEASE "${JXL_LIBRARY_RELEASE}"
+                    IMPORTED_LOCATION_DEBUG "${JXL_LIBRARY_DEBUG}"
+                )
+            elseif(JXL_LIBRARY_RELEASE)
+                set_target_properties(jxl::jxl PROPERTIES IMPORTED_LOCATION "${JXL_LIBRARY_RELEASE}")
+            elseif(JXL_LIBRARY_DEBUG)
+                set_target_properties(jxl::jxl PROPERTIES IMPORTED_LOCATION "${JXL_LIBRARY_DEBUG}")
+            endif()
+        endif()
+        
+        if(NOT TARGET jxl::jxl_threads)
+            add_library(jxl::jxl_threads UNKNOWN IMPORTED)
+            if(JXL_THREADS_LIBRARY_RELEASE AND JXL_THREADS_LIBRARY_DEBUG)
+                set_target_properties(jxl::jxl_threads PROPERTIES
+                    IMPORTED_LOCATION_RELEASE "${JXL_THREADS_LIBRARY_RELEASE}"
+                    IMPORTED_LOCATION_DEBUG "${JXL_THREADS_LIBRARY_DEBUG}"
+                )
+            elseif(JXL_THREADS_LIBRARY_RELEASE)
+                set_target_properties(jxl::jxl_threads PROPERTIES IMPORTED_LOCATION "${JXL_THREADS_LIBRARY_RELEASE}")
+            elseif(JXL_THREADS_LIBRARY_DEBUG)
+                set_target_properties(jxl::jxl_threads PROPERTIES IMPORTED_LOCATION "${JXL_THREADS_LIBRARY_DEBUG}")
+            endif()
+        endif()
+        
+        if((JXL_CMS_LIBRARY_RELEASE OR JXL_CMS_LIBRARY_DEBUG) AND NOT TARGET jxl::jxl_cms)
+            add_library(jxl::jxl_cms UNKNOWN IMPORTED)
+            if(JXL_CMS_LIBRARY_RELEASE AND JXL_CMS_LIBRARY_DEBUG)
+                set_target_properties(jxl::jxl_cms PROPERTIES
+                    IMPORTED_LOCATION_RELEASE "${JXL_CMS_LIBRARY_RELEASE}"
+                    IMPORTED_LOCATION_DEBUG "${JXL_CMS_LIBRARY_DEBUG}"
+                )
+            elseif(JXL_CMS_LIBRARY_RELEASE)
+                set_target_properties(jxl::jxl_cms PROPERTIES IMPORTED_LOCATION "${JXL_CMS_LIBRARY_RELEASE}")
+            elseif(JXL_CMS_LIBRARY_DEBUG)
+                set_target_properties(jxl::jxl_cms PROPERTIES IMPORTED_LOCATION "${JXL_CMS_LIBRARY_DEBUG}")
+            endif()
+        endif()
+        
+        if(NOT TARGET hwy::hwy)
+            add_library(hwy::hwy UNKNOWN IMPORTED)
+            if(HWY_LIBRARY_RELEASE AND HWY_LIBRARY_DEBUG)
+                set_target_properties(hwy::hwy PROPERTIES
+                    IMPORTED_LOCATION_RELEASE "${HWY_LIBRARY_RELEASE}"
+                    IMPORTED_LOCATION_DEBUG "${HWY_LIBRARY_DEBUG}"
+                )
+            elseif(HWY_LIBRARY_RELEASE)
+                set_target_properties(hwy::hwy PROPERTIES IMPORTED_LOCATION "${HWY_LIBRARY_RELEASE}")
+            elseif(HWY_LIBRARY_DEBUG)
+                set_target_properties(hwy::hwy PROPERTIES IMPORTED_LOCATION "${HWY_LIBRARY_DEBUG}")
+            endif()
+        endif()
+        
+        if(NOT TARGET brotli::brotlicommon)
+            add_library(brotli::brotlicommon UNKNOWN IMPORTED)
+            if(BROTLI_COMMON_LIBRARY_RELEASE AND BROTLI_COMMON_LIBRARY_DEBUG)
+                set_target_properties(brotli::brotlicommon PROPERTIES
+                    IMPORTED_LOCATION_RELEASE "${BROTLI_COMMON_LIBRARY_RELEASE}"
+                    IMPORTED_LOCATION_DEBUG "${BROTLI_COMMON_LIBRARY_DEBUG}"
+                )
+            elseif(BROTLI_COMMON_LIBRARY_RELEASE)
+                set_target_properties(brotli::brotlicommon PROPERTIES IMPORTED_LOCATION "${BROTLI_COMMON_LIBRARY_RELEASE}")
+            elseif(BROTLI_COMMON_LIBRARY_DEBUG)
+                set_target_properties(brotli::brotlicommon PROPERTIES IMPORTED_LOCATION "${BROTLI_COMMON_LIBRARY_DEBUG}")
+            endif()
+        endif()
+        
+        if(NOT TARGET brotli::brotlidec)
+            add_library(brotli::brotlidec UNKNOWN IMPORTED)
+            if(BROTLI_DEC_LIBRARY_RELEASE AND BROTLI_DEC_LIBRARY_DEBUG)
+                set_target_properties(brotli::brotlidec PROPERTIES
+                    IMPORTED_LOCATION_RELEASE "${BROTLI_DEC_LIBRARY_RELEASE}"
+                    IMPORTED_LOCATION_DEBUG "${BROTLI_DEC_LIBRARY_DEBUG}"
+                )
+            elseif(BROTLI_DEC_LIBRARY_RELEASE)
+                set_target_properties(brotli::brotlidec PROPERTIES IMPORTED_LOCATION "${BROTLI_DEC_LIBRARY_RELEASE}")
+            elseif(BROTLI_DEC_LIBRARY_DEBUG)
+                set_target_properties(brotli::brotlidec PROPERTIES IMPORTED_LOCATION "${BROTLI_DEC_LIBRARY_DEBUG}")
+            endif()
+        endif()
+        
+        if(NOT TARGET brotli::brotlienc)
+            add_library(brotli::brotlienc UNKNOWN IMPORTED)
+            if(BROTLI_ENC_LIBRARY_RELEASE AND BROTLI_ENC_LIBRARY_DEBUG)
+                set_target_properties(brotli::brotlienc PROPERTIES
+                    IMPORTED_LOCATION_RELEASE "${BROTLI_ENC_LIBRARY_RELEASE}"
+                    IMPORTED_LOCATION_DEBUG "${BROTLI_ENC_LIBRARY_DEBUG}"
+                )
+            elseif(BROTLI_ENC_LIBRARY_RELEASE)
+                set_target_properties(brotli::brotlienc PROPERTIES IMPORTED_LOCATION "${BROTLI_ENC_LIBRARY_RELEASE}")
+            elseif(BROTLI_ENC_LIBRARY_DEBUG)
+                set_target_properties(brotli::brotlienc PROPERTIES IMPORTED_LOCATION "${BROTLI_ENC_LIBRARY_DEBUG}")
+            endif()
+        endif()
+
+        # Link all JXL dependencies
+        target_link_libraries(dng_sdk PUBLIC
+            jxl::jxl
+            jxl::jxl_threads
+            hwy::hwy
+            brotli::brotlidec
+            brotli::brotlienc
+            brotli::brotlicommon
+        )
+        if(TARGET jxl::jxl_cms)
+            target_link_libraries(dng_sdk PUBLIC jxl::jxl_cms)
+        endif()
+    endif()
+endif()
+
+# Install headers (not part of export, installed separately)
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/dng_sdk/source/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dng_sdk
+    FILES_MATCHING PATTERN "*.h"
 )

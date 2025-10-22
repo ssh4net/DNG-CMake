@@ -1,0 +1,84 @@
+@PACKAGE_INIT@
+
+# dng_sdk CMake configuration file
+
+include(CMakeFindDependencyMacro)
+
+# Find required dependencies for static builds
+find_dependency(Threads REQUIRED)
+
+# JPEG support (optional)
+if(@DNG_WITH_JPEG@)
+    find_dependency(JPEG REQUIRED)
+endif()
+
+# JPEG-XL support with all dependencies (optional)
+if(@DNG_WITH_JXL@)
+    # Try to use find_package for libjxl if available
+    find_package(libjxl CONFIG QUIET)
+    if(NOT libjxl_FOUND)
+        # Fallback to PkgConfig
+        find_package(PkgConfig QUIET)
+        if(PkgConfig_FOUND)
+            pkg_check_modules(JXL REQUIRED IMPORTED_TARGET libjxl)
+            pkg_check_modules(JXL_THREADS REQUIRED IMPORTED_TARGET libjxl_threads)
+            pkg_check_modules(HWY REQUIRED IMPORTED_TARGET libhwy)
+            pkg_check_modules(BROTLI_DEC REQUIRED IMPORTED_TARGET libbrotlidec)
+            pkg_check_modules(BROTLI_ENC REQUIRED IMPORTED_TARGET libbrotlienc)
+            pkg_check_modules(BROTLI_COMMON REQUIRED IMPORTED_TARGET libbrotlicommon)
+        else()
+            # Last resort: find libraries manually
+            find_library(JXL_LIBRARY NAMES jxl REQUIRED)
+            find_library(JXL_THREADS_LIBRARY NAMES jxl_threads REQUIRED)
+            find_library(JXL_CMS_LIBRARY NAMES jxl_cms)
+            find_library(HWY_LIBRARY NAMES hwy REQUIRED)
+            find_library(BROTLI_COMMON_LIBRARY NAMES brotlicommon REQUIRED)
+            find_library(BROTLI_DEC_LIBRARY NAMES brotlidec REQUIRED)
+            find_library(BROTLI_ENC_LIBRARY NAMES brotlienc REQUIRED)
+
+            # Create imported targets for manual finds
+            if(JXL_LIBRARY AND NOT TARGET jxl::jxl)
+                add_library(jxl::jxl UNKNOWN IMPORTED)
+                set_target_properties(jxl::jxl PROPERTIES
+                    IMPORTED_LOCATION "${JXL_LIBRARY}"
+                )
+            endif()
+            if(HWY_LIBRARY AND NOT TARGET hwy::hwy)
+                add_library(hwy::hwy UNKNOWN IMPORTED)
+                set_target_properties(hwy::hwy PROPERTIES
+                    IMPORTED_LOCATION "${HWY_LIBRARY}"
+                )
+            endif()
+        endif()
+    endif()
+endif()
+
+# XMP Toolkit support (optional)
+if(@DNG_WITH_XMP@)
+    # Try to find XMP as a package first
+    find_package(XMPToolkit @PROJECT_VERSION@ QUIET
+        HINTS "${CMAKE_CURRENT_LIST_DIR}/../XMPToolkit"
+    )
+
+    if(NOT XMPToolkit_FOUND)
+        # XMP dependencies
+        find_dependency(EXPAT REQUIRED)
+        find_dependency(ZLIB REQUIRED)
+    endif()
+endif()
+
+# Include the targets file - this creates the dng_sdk::* targets
+# CMake automatically generates dng_sdk-targets-<config>.cmake for each build configuration
+include("${CMAKE_CURRENT_LIST_DIR}/dng_sdk-targets.cmake")
+
+# The targets are already namespaced (dng_sdk::) by the install(EXPORT) command
+# No need to create additional aliases - they're already available:
+#  - dng_sdk::dng_sdk (library)
+#  - dng_sdk::dng_validate (executable, if BUILD_DNG_VALIDATE=ON)
+
+# Set convenient variables for downstream projects
+set(dng_sdk_LIBRARIES dng_sdk::dng_sdk)
+set(dng_sdk_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@")
+set(dng_sdk_VERSION "@PROJECT_VERSION@")
+
+check_required_components(dng_sdk)

@@ -17,7 +17,7 @@ Extract the SDK to the same folder as DNG-Cmake.
 
 ### System Libraries
 
-The build system uses the following system libraries:
+The build system uses the following system libraries by default:
 - **zlib** (ZIP compression) zlib or zlib-ng in zlib compatible mode
 - **libjpeg** (JPEG support) jpeg or turbo-jpeg
 - **libjxl** (JPEGXL support)
@@ -26,6 +26,50 @@ The build system uses the following system libraries:
 - **libhwy** (Google Highway SIMD library for JPEGXL)
 - **Boost** (uuid) - bundled in XMP SDK or optionally can use system Boost library
 - **XMP SDK** (can use system library /not tested/ - note that official XMP SDK differs from the XMP SDK included in DNG SDK archive)
+
+### Bundled Library Options
+
+By default, the build system prioritizes system libraries for better performance and security. However, you can optionally use bundled versions:
+
+- `DNG_BUNDLED_JPEG=OFF` (default) - Use system libjpeg
+- `DNG_BUNDLED_JXL=OFF` (default) - Use system libjxl
+- `XMP_USE_SYSTEM_ZLIB=ON` (default) - Use system zlib
+- `XMP_USE_SYSTEM_BOOST=OFF` (default) - Use bundled Boost UUID headers
+
+To use bundled libraries instead of system libraries:
+
+```bash
+cmake -DDNG_BUNDLED_JPEG=ON -DDNG_BUNDLED_JXL=ON -DXMP_USE_SYSTEM_ZLIB=OFF -DXMP_USE_SYSTEM_BOOST=ON ..
+```
+
+### Cache Variable Management
+
+The build system preserves important CMake cache variables across reconfigurations:
+
+- **`CMAKE_MSVC_RUNTIME_LIBRARY`** - Set to `MultiThreaded$<$<CONFIG:Debug>:Debug>` for static runtime linking
+- **`CMAKE_DEBUG_POSTFIX`** - Set to `"d"` for debug library naming (e.g., `dng_sdkd.lib`)
+- **`CMAKE_PREFIX_PATH`** - Preserved for system library search paths
+- **`CMAKE_INSTALL_PREFIX`** - Defaults to `${CMAKE_SOURCE_DIR}/install`
+
+These variables are cached and persist across `cmake` reconfigurations, ensuring consistent builds.
+
+### Debug/Release Library Linking
+
+The build system properly handles debug and release library linking using CMake generator expressions and imported targets with config-specific properties. This ensures that:
+
+- **Debug builds** link only debug libraries (e.g., `libjpegd.lib`, `jxld.lib`)
+- **Release builds** link only release libraries (e.g., `libjpeg.lib`, `jxl.lib`)
+- **No mixing** of debug and release libraries in the same build
+- **No duplicate linking** - libraries are linked only once through transitive dependencies
+
+This prevents linker errors, runtime library mismatches, and ensures optimal performance for each build configuration.
+
+#### How It Works
+
+1. **`dng_sdk`** library links dependencies with `PUBLIC` linkage, making them available to consumers
+2. **`dng_validate`** links only `dng_sdk` and gets all dependencies transitively
+3. **Imported targets** use `IMPORTED_LOCATION_RELEASE` and `IMPORTED_LOCATION_DEBUG` properties
+4. **CMake automatically selects** the correct library variant based on build configuration
 
 ### Platform Requirements
 
@@ -140,13 +184,27 @@ ninja
 
 ## CMake Options
 
-The build system supports enabling/disabling features (tested configurations noted):
+### Core Build Options
 
-- `-DQMAKE_PROJECT=ON/OFF` - Build XMP support (tested: ON)
-- `-DUSE_LIBJXL=ON/OFF` - Enable JPEGXL support (tested: ON)
-- `-DUSE_LIBJPEG=ON/OFF` - Enable JPEG support (tested: ON)
-- `-DBUILD_DNG_VALIDATE=ON/OFF` - Build dng_validate tool (tested: ON)
-- Additional options may be available - see CMakeLists.txt
+- `-DBUILD_DNG_VALIDATE=ON/OFF` - Build dng_validate tool (default: ON)
+- `-DDNG_THREAD_SAFE=ON/OFF` - Enable thread-safe DNG SDK (default: ON)
+- `-DDNG_WITH_JPEG=ON/OFF` - Enable JPEG support via libjpeg (default: ON)
+- `-DDNG_WITH_JXL=ON/OFF` - Enable JPEG-XL support via libjxl (default: ON)
+- `-DDNG_WITH_XMP=ON/OFF` - Enable XMP metadata support (default: ON)
+
+### Debug and Diagnostic Options
+
+- `-DDNG_REPORT_ERRORS=ON/OFF` - Enable error reporting (default: ON)
+- `-DDNG_VALIDATE=ON/OFF` - Enable validation checks (default: OFF)
+- `-DDNG_DEBUG_PIXEL_TYPE=ON/OFF` - Enable pixel type debugging (default: OFF)
+- `-DDNG_LOG_UPDATE_METADATA=ON/OFF` - Log metadata updates (default: OFF)
+- `-DDNG_OPT_GETBITS_MATH=ON/OFF` - Use optimized bit extraction (default: OFF)
+
+### Advanced Options
+
+- `-DXMP_USE_SYSTEM_BOOST=ON/OFF` - Use system Boost UUID instead of vendored (default: OFF)
+- `-DXMP_ROOT=<path>` - Path to XMP toolkit root if not in repo
+- `-DCMAKE_PREFIX_PATH=<paths>` - Semicolon-separated library search paths
 
 ## Output
 

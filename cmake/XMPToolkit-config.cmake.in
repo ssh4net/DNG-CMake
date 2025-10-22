@@ -1,0 +1,77 @@
+@PACKAGE_INIT@
+
+# XMP Toolkit CMake configuration file
+
+include(CMakeFindDependencyMacro)
+
+# Find required dependencies for static XMP libraries
+# These are required because we're linking statically
+find_dependency(Threads REQUIRED)
+
+# Expat XML parser
+find_package(EXPAT QUIET)
+if(NOT EXPAT_FOUND)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(EXPAT REQUIRED IMPORTED_TARGET expat)
+    else()
+        find_library(EXPAT_LIBRARY NAMES expat libexpat libexpatMT libexpatMD REQUIRED)
+        find_path(EXPAT_INCLUDE_DIR NAMES expat.h REQUIRED)
+        if(EXPAT_LIBRARY AND NOT TARGET EXPAT::EXPAT)
+            add_library(EXPAT::EXPAT UNKNOWN IMPORTED)
+            set_target_properties(EXPAT::EXPAT PROPERTIES
+                IMPORTED_LOCATION "${EXPAT_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${EXPAT_INCLUDE_DIR}"
+            )
+        endif()
+    endif()
+endif()
+
+# Zlib compression library
+find_package(ZLIB QUIET)
+if(NOT ZLIB_FOUND)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(ZLIB REQUIRED IMPORTED_TARGET zlib)
+    else()
+        find_library(ZLIB_LIBRARY NAMES z zlib zlibstatic REQUIRED)
+        find_path(ZLIB_INCLUDE_DIR NAMES zlib.h REQUIRED)
+        if(ZLIB_LIBRARY AND NOT TARGET ZLIB::ZLIB)
+            add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
+            set_target_properties(ZLIB::ZLIB PROPERTIES
+                IMPORTED_LOCATION "${ZLIB_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIR}"
+            )
+        endif()
+    endif()
+endif()
+
+# Include the targets file - this creates the XMP::* targets
+# CMake automatically generates XMPToolkit-targets-<config>.cmake for each build configuration
+include("${CMAKE_CURRENT_LIST_DIR}/XMPToolkit-targets.cmake")
+
+# The targets are already namespaced (XMP::) by the install(EXPORT) command
+# They're available as:
+#  - XMP::XMPCoreStatic
+#  - XMP::XMPFilesStatic
+
+# Set convenient package variables for downstream projects
+set(XMPToolkit_FOUND TRUE)
+set(XMPToolkit_VERSION "@PROJECT_VERSION@")
+set(XMPToolkit_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@/xmp")
+set(XMPToolkit_LIBRARIES XMP::XMPCoreStatic XMP::XMPFilesStatic)
+
+# Platform-specific definitions that users need to set
+if(WIN32)
+    set(XMPToolkit_DEFINITIONS WIN_ENV XMP_WinBuild XMP_StaticBuild=1)
+elseif(APPLE)
+    if(IOS)
+        set(XMPToolkit_DEFINITIONS IOS_ENV XMP_iOSBuild XMP_StaticBuild=1)
+    else()
+        set(XMPToolkit_DEFINITIONS MAC_ENV XMP_MacBuild XMP_StaticBuild=1)
+    endif()
+else()
+    set(XMPToolkit_DEFINITIONS UNIX_ENV XMP_UNIXBuild XMP_StaticBuild=1)
+endif()
+
+check_required_components(XMPToolkit)

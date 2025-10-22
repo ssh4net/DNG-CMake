@@ -1,0 +1,13 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: XMPFilesStatic
+Description: Adobe XMP Files SDK - Extensible Metadata Platform Files library
+Version: @PROJECT_VERSION@
+
+Requires: XMPCoreStatic
+Libs: -L${libdir} -lXMPFilesStatic -lXMPCoreStatic
+Libs.private: -lexpat -lz
+Cflags: -I${includedir}/xmp -DXMP_StaticBuild=1 @XMP_PC_CFLAGS@

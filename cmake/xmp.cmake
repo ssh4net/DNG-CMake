@@ -63,6 +63,7 @@ add_library(XMPCoreStatic STATIC
 set_target_properties(XMPCoreStatic PROPERTIES
     CXX_STANDARD 14
     CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
     DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
 )
 
@@ -138,8 +139,7 @@ if(EXPAT_INCLUDE_DIR)
     target_include_directories(XMPCoreStatic PRIVATE ${EXPAT_INCLUDE_DIR})
 endif()
 
-# Boost UUID headers: default to vendored copy; optional system/external
-option(XMP_USE_SYSTEM_BOOST "Use system Boost UUID headers instead of vendored copy" OFF)
+# Boost UUID headers: use the option from main CMakeLists.txt
 if(XMP_USE_SYSTEM_BOOST)
     find_path(BOOST_UUID_INCLUDE_DIR NAMES boost/uuid/uuid.hpp PATH_SUFFIXES include)
     if(BOOST_UUID_INCLUDE_DIR)
@@ -292,18 +292,19 @@ endif()
 set_target_properties(XMPFilesStatic PROPERTIES
     CXX_STANDARD 14
     CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
     DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
 )
 
-# Install XMP public headers and static libs for consumers
+# Install XMP public headers (not part of export, installed separately)
+# For static library builds, we only need the headers, not the .cpp/.incl_cpp template files
 install(DIRECTORY ${REPO_ROOT}/xmp/toolkit/public/include/
-    DESTINATION include/xmp
-)
-
-install(TARGETS XMPCoreStatic XMPFilesStatic
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/xmp
+    FILES_MATCHING
+        PATTERN "*.h"
+        PATTERN "*.hpp"
+    PATTERN "source" EXCLUDE      # Exclude template implementation .cpp files
+    PATTERN "client-glue" EXCLUDE # Exclude client glue code (not needed for static builds)
 )
 
 # XMPFiles definitions  
@@ -375,37 +376,56 @@ if(EXPAT_INCLUDE_DIR)
 endif()
 
 # Link XMPFiles with XMPCore
-target_link_libraries(XMPFilesStatic PRIVATE
+target_link_libraries(XMPFilesStatic PUBLIC
     XMPCoreStatic
 )
 
-# Link with system libraries if available (support Windows and Unix naming)
-if(WIN32)
-    find_library(EXPAT_LIBRARY_RELEASE NAMES libexpatMT libexpatMD libexpat expat)
-    find_library(EXPAT_LIBRARY_DEBUG   NAMES libexpatdMT libexpatdMD libexpatd expatd)
-    if(EXPAT_LIBRARY_RELEASE)
-        target_link_libraries(XMPCoreStatic PRIVATE optimized ${EXPAT_LIBRARY_RELEASE})
-    endif()
-    if(EXPAT_LIBRARY_DEBUG)
-        target_link_libraries(XMPCoreStatic PRIVATE debug ${EXPAT_LIBRARY_DEBUG})
-    endif()
-
-    find_library(ZLIB_LIBRARY_RELEASE NAMES zlib zlibstatic z)
-    find_library(ZLIB_LIBRARY_DEBUG   NAMES zlibd zlibstaticd zd)
-    if(ZLIB_LIBRARY_RELEASE)
-        target_link_libraries(XMPCoreStatic PRIVATE optimized ${ZLIB_LIBRARY_RELEASE})
-    endif()
-    if(ZLIB_LIBRARY_DEBUG)
-        target_link_libraries(XMPCoreStatic PRIVATE debug ${ZLIB_LIBRARY_DEBUG})
-    endif()
+# Link with system libraries
+# Use PUBLIC for static libraries so downstream projects get transitive dependencies
+find_package(EXPAT)
+if(EXPAT_FOUND)
+    target_link_libraries(XMPCoreStatic PUBLIC EXPAT::EXPAT)
 else()
-    find_library(EXPAT_LIBRARY NAMES expat)
-    if(EXPAT_LIBRARY)
-        target_link_libraries(XMPCoreStatic PRIVATE ${EXPAT_LIBRARY})
+    # Fallback to manual library finding
+    if(WIN32)
+        find_library(EXPAT_LIBRARY_RELEASE NAMES libexpatMT libexpatMD libexpat expat)
+        find_library(EXPAT_LIBRARY_DEBUG   NAMES libexpatdMT libexpatdMD libexpatd expatd)
+        if(EXPAT_LIBRARY_RELEASE AND EXPAT_LIBRARY_DEBUG)
+            target_link_libraries(XMPCoreStatic PUBLIC 
+                $<$<CONFIG:Debug>:${EXPAT_LIBRARY_DEBUG}>
+                $<$<NOT:$<CONFIG:Debug>>:${EXPAT_LIBRARY_RELEASE}>
+            )
+        elseif(EXPAT_LIBRARY_RELEASE)
+            target_link_libraries(XMPCoreStatic PUBLIC ${EXPAT_LIBRARY_RELEASE})
+        elseif(EXPAT_LIBRARY_DEBUG)
+            target_link_libraries(XMPCoreStatic PUBLIC ${EXPAT_LIBRARY_DEBUG})
+        endif()
+    else()
+        find_library(EXPAT_LIBRARY NAMES expat REQUIRED)
+        target_link_libraries(XMPCoreStatic PUBLIC ${EXPAT_LIBRARY})
     endif()
+endif()
 
-    find_library(ZLIB_LIBRARY NAMES z)
-    if(ZLIB_LIBRARY)
-        target_link_libraries(XMPCoreStatic PRIVATE ${ZLIB_LIBRARY})
+find_package(ZLIB)
+if(ZLIB_FOUND)
+    target_link_libraries(XMPCoreStatic PUBLIC ZLIB::ZLIB)
+else()
+    # Fallback to manual library finding
+    if(WIN32)
+        find_library(ZLIB_LIBRARY_RELEASE NAMES zlib zlibstatic z)
+        find_library(ZLIB_LIBRARY_DEBUG   NAMES zlibd zlibstaticd zd)
+        if(ZLIB_LIBRARY_RELEASE AND ZLIB_LIBRARY_DEBUG)
+            target_link_libraries(XMPCoreStatic PUBLIC 
+                $<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
+                $<$<NOT:$<CONFIG:Debug>>:${ZLIB_LIBRARY_RELEASE}>
+            )
+        elseif(ZLIB_LIBRARY_RELEASE)
+            target_link_libraries(XMPCoreStatic PUBLIC ${ZLIB_LIBRARY_RELEASE})
+        elseif(ZLIB_LIBRARY_DEBUG)
+            target_link_libraries(XMPCoreStatic PUBLIC ${ZLIB_LIBRARY_DEBUG})
+        endif()
+    else()
+        find_library(ZLIB_LIBRARY NAMES z REQUIRED)
+        target_link_libraries(XMPCoreStatic PUBLIC ${ZLIB_LIBRARY})
     endif()
 endif()

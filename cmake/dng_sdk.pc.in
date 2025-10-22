@@ -1,0 +1,15 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: dng_sdk
+Description: Adobe DNG SDK - Digital Negative RAW image processing library
+Version: @PROJECT_VERSION@
+URL: https://helpx.adobe.com/camera-raw/digital-negative.html
+
+Requires: @DNG_SDK_PC_REQUIRES@
+Requires.private: @DNG_SDK_PC_REQUIRES_PRIVATE@
+Libs: -L${libdir} -ldng_sdk
+Libs.private: @DNG_SDK_PC_LIBS_PRIVATE@
+Cflags: -I${includedir}/dng_sdk @DNG_SDK_PC_CFLAGS@
