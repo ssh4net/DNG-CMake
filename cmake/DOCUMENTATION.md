@@ -101,12 +101,12 @@ cmake --install .
 No need to specify a component - documentation is part of the default installation.
 
 Installed location (Unix):
-- **DNG SDK**: `<prefix>/share/doc/index.html`
-- **XMP Toolkit**: `<prefix>/share/xmp/index.html`
+- **DNG SDK**: `<prefix>/share/doc/dng_sdk/index.html`
+- **XMP Toolkit**: `<prefix>/share/doc/xmp/index.html`
 
 Installed location (Windows):
-- **DNG SDK**: `<prefix>/doc/index.html`
-- **XMP Toolkit**: `<prefix>/xmp/index.html`
+- **DNG SDK**: `<prefix>/doc/dng_sdk/index.html`
+- **XMP Toolkit**: `<prefix>/doc/xmp/index.html`
 
 ## Configuration Files
 
@@ -158,6 +158,8 @@ Pre-existing Doxyfile from XMP SDK. The CMake system modifies it at build time t
   - `SOURCE_BROWSER = YES` - Includes source code browsing
   - `GENERATE_TREEVIEW = YES` - Enables tree navigation sidebar
   - `SEARCHENGINE = YES` - Enables HTML search functionality
+  - `MACRO_EXPANSION = YES` - Expands macros for proper documentation
+  - `EXPAND_ONLY_PREDEF = YES` - Only expand predefined macros for safety
 - Remove obsolete tags for newer Doxygen versions
 - Clear broken references to missing HTML customization files
 

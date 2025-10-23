@@ -63,8 +63,14 @@ add_custom_target(dng_sdk_docs ALL
 
 # Install DNG SDK documentation (part of default install, not a separate component)
 # CMake will check if the output exists and skip regeneration during install
+# Install to share/doc/dng_sdk (Unix) or doc/dng_sdk (Windows)
+if(WIN32)
+    set(DNG_INSTALL_DIR "doc/dng_sdk")
+else()
+    set(DNG_INSTALL_DIR "share/doc/dng_sdk")
+endif()
 install(DIRECTORY ${DNG_DOXYGEN_OUTPUT_DIR}/html/
-    DESTINATION ${CMAKE_INSTALL_DOCDIR}
+    DESTINATION ${DNG_INSTALL_DIR}
     OPTIONAL
 )
 
@@ -122,6 +128,14 @@ if(DNG_WITH_XMP)
                XMP_DOXYFILE_CONTENT "${XMP_DOXYFILE_CONTENT}")
         string(REGEX REPLACE "SEARCHENGINE[ \t]*=[ \t]*NO"
                "SEARCHENGINE           = YES"
+               XMP_DOXYFILE_CONTENT "${XMP_DOXYFILE_CONTENT}")
+
+        # Enable macro expansion to handle XMP's heavy use of BASE_CLASS and other macros
+        string(REGEX REPLACE "MACRO_EXPANSION[ \t]*=[ \t]*NO"
+               "MACRO_EXPANSION        = YES"
+               XMP_DOXYFILE_CONTENT "${XMP_DOXYFILE_CONTENT}")
+        string(REGEX REPLACE "EXPAND_ONLY_PREDEF[ \t]*=[ \t]*NO"
+               "EXPAND_ONLY_PREDEF     = YES"
                XMP_DOXYFILE_CONTENT "${XMP_DOXYFILE_CONTENT}")
 
         # Remove obsolete HTML_HEADER, HTML_FOOTER, HTML_STYLESHEET that reference missing files
@@ -184,11 +198,11 @@ if(DNG_WITH_XMP)
 
         # Install XMP documentation (part of default install, not a separate component)
         # CMake will check if the output exists and skip regeneration during install
-        # Install to share/xmp (Unix) or xmp (Windows), parallel to doc directory
+        # Install to share/doc/xmp (Unix) or doc/xmp (Windows), under doc directory
         if(WIN32)
-            set(XMP_INSTALL_DIR "xmp")
+            set(XMP_INSTALL_DIR "doc/xmp")
         else()
-            set(XMP_INSTALL_DIR "share/xmp")
+            set(XMP_INSTALL_DIR "share/doc/xmp")
         endif()
         install(DIRECTORY ${XMP_DOXYGEN_OUTPUT_DIR}/html/
             DESTINATION ${XMP_INSTALL_DIR}
@@ -223,4 +237,14 @@ message(STATUS "Documentation generation enabled:")
 message(STATUS "  - Documentation will be built automatically during build")
 message(STATUS "  - Documentation will be installed automatically with 'cmake --install .'")
 message(STATUS "  - Manual build: cmake --build . --target docs")
-message(STATUS "  - Install location: ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DOCDIR}")
+if(WIN32)
+    message(STATUS "  - DNG SDK install location: ${CMAKE_INSTALL_PREFIX}/doc/dng_sdk")
+    if(TARGET xmp_docs)
+        message(STATUS "  - XMP Toolkit install location: ${CMAKE_INSTALL_PREFIX}/doc/xmp")
+    endif()
+else()
+    message(STATUS "  - DNG SDK install location: ${CMAKE_INSTALL_PREFIX}/share/doc/dng_sdk")
+    if(TARGET xmp_docs)
+        message(STATUS "  - XMP Toolkit install location: ${CMAKE_INSTALL_PREFIX}/share/doc/xmp")
+    endif()
+endif()

@@ -219,8 +219,8 @@ cmake --install .
 
 The generated HTML documentation will be located in:
 - Build directory: `build/docs/dng_sdk/html/` and `build/docs/xmp/html/`
-- After installation (Unix): `<install-prefix>/share/doc/` and `<install-prefix>/share/xmp/`
-- After installation (Windows): `<install-prefix>/doc/` and `<install-prefix>/xmp/`
+- After installation (Unix): `<install-prefix>/share/doc/dng_sdk/` and `<install-prefix>/share/doc/xmp/`
+- After installation (Windows): `<install-prefix>/doc/dng_sdk/` and `<install-prefix>/doc/xmp/`
 
 **Note:** When `BUILD_DOCUMENTATION=ON`, documentation is generated during the normal build process and installed with the standard install target. You don't need to use separate commands or components.
 
