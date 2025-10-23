@@ -40,6 +40,7 @@ endif()
 
 # Build options (portable, align with VS solution defaults)
 option(BUILD_DNG_VALIDATE "Build the dng_validate tool" ON)
+option(BUILD_DOCUMENTATION "Build API documentation with Doxygen" OFF)
 option(DNG_THREAD_SAFE "Enable thread-safe DNG SDK (BIB_MULTI_THREAD)" ON)
 option(DNG_WITH_JPEG "Enable libjpeg usage in DNG SDK" ON)
 option(DNG_WITH_JXL "Enable libjxl usage in DNG SDK" ON)
@@ -216,6 +217,11 @@ endif()
 include(cmake/dng_sdk.cmake)
 if(BUILD_DNG_VALIDATE)
     include(cmake/dng_validate.cmake)
+endif()
+
+# Doxygen documentation generation (optional)
+if(BUILD_DOCUMENTATION)
+    include(cmake/doxygen.cmake)
 endif()
 
 #

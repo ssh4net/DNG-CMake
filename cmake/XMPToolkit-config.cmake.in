@@ -4,6 +4,20 @@
 
 include(CMakeFindDependencyMacro)
 
+# Helper function to set imported library location for all configurations
+# This prevents warnings about IMPORTED_LOCATION not being set for MinSizeRel/RelWithDebInfo
+function(set_imported_location_all_configs target location)
+    if(location)
+        set_target_properties(${target} PROPERTIES
+            IMPORTED_LOCATION "${location}"
+            IMPORTED_LOCATION_RELEASE "${location}"
+            IMPORTED_LOCATION_MINSIZEREL "${location}"
+            IMPORTED_LOCATION_RELWITHDEBINFO "${location}"
+            IMPORTED_LOCATION_DEBUG "${location}"
+        )
+    endif()
+endfunction()
+
 # Find required dependencies for static XMP libraries
 # These are required because we're linking statically
 find_dependency(Threads REQUIRED)
@@ -19,8 +33,8 @@ if(NOT EXPAT_FOUND)
         find_path(EXPAT_INCLUDE_DIR NAMES expat.h REQUIRED)
         if(EXPAT_LIBRARY AND NOT TARGET EXPAT::EXPAT)
             add_library(EXPAT::EXPAT UNKNOWN IMPORTED)
+            set_imported_location_all_configs(EXPAT::EXPAT "${EXPAT_LIBRARY}")
             set_target_properties(EXPAT::EXPAT PROPERTIES
-                IMPORTED_LOCATION "${EXPAT_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${EXPAT_INCLUDE_DIR}"
             )
         endif()
@@ -38,8 +52,8 @@ if(NOT ZLIB_FOUND)
         find_path(ZLIB_INCLUDE_DIR NAMES zlib.h REQUIRED)
         if(ZLIB_LIBRARY AND NOT TARGET ZLIB::ZLIB)
             add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
+            set_imported_location_all_configs(ZLIB::ZLIB "${ZLIB_LIBRARY}")
             set_target_properties(ZLIB::ZLIB PROPERTIES
-                IMPORTED_LOCATION "${ZLIB_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIR}"
             )
         endif()

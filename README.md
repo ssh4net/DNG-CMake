@@ -182,6 +182,48 @@ cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
 ninja
 ```
 
+## Building Documentation
+
+To generate API documentation with Doxygen:
+
+### Prerequisites
+
+Install Doxygen:
+- **Ubuntu/Debian**: `sudo apt install doxygen graphviz`
+- **Windows**: Download from [doxygen.nl/download.html](https://www.doxygen.nl/download.html)
+- **macOS**: `brew install doxygen graphviz`
+
+Note: Graphviz (dot) is optional but recommended for generating class diagrams.
+
+### Generate Documentation
+
+1. Configure with documentation enabled:
+```bash
+cmake -DBUILD_DOCUMENTATION=ON ..
+```
+
+2. Build (documentation is built automatically):
+```bash
+# Standard build - documentation is generated automatically
+cmake --build .
+
+# Or explicitly build just documentation
+cmake --build . --target docs
+```
+
+3. Install (documentation is installed automatically):
+```bash
+# Standard install - documentation is included
+cmake --install .
+```
+
+The generated HTML documentation will be located in:
+- Build directory: `build/docs/dng_sdk/html/` and `build/docs/xmp/html/`
+- After installation (Unix): `<install-prefix>/share/doc/` and `<install-prefix>/share/xmp/`
+- After installation (Windows): `<install-prefix>/doc/` and `<install-prefix>/xmp/`
+
+**Note:** When `BUILD_DOCUMENTATION=ON`, documentation is generated during the normal build process and installed with the standard install target. You don't need to use separate commands or components.
+
 ## CMake Options
 
 ### Core Build Options
@@ -199,6 +241,12 @@ ninja
 - `-DDNG_DEBUG_PIXEL_TYPE=ON/OFF` - Enable pixel type debugging (default: OFF)
 - `-DDNG_LOG_UPDATE_METADATA=ON/OFF` - Log metadata updates (default: OFF)
 - `-DDNG_OPT_GETBITS_MATH=ON/OFF` - Use optimized bit extraction (default: OFF)
+
+### Documentation Generation
+
+- `-DBUILD_DOCUMENTATION=ON/OFF` - Build API documentation with Doxygen (default: OFF)
+
+When enabled, requires Doxygen to be installed on your system. Generates HTML documentation for both DNG SDK and XMP Toolkit APIs.
 
 ### Advanced Options
 

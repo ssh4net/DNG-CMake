@@ -4,6 +4,20 @@
 
 include(CMakeFindDependencyMacro)
 
+# Helper function to set imported library location for all configurations
+# This prevents warnings about IMPORTED_LOCATION not being set for MinSizeRel/RelWithDebInfo
+function(set_imported_location_all_configs target location)
+    if(location)
+        set_target_properties(${target} PROPERTIES
+            IMPORTED_LOCATION "${location}"
+            IMPORTED_LOCATION_RELEASE "${location}"
+            IMPORTED_LOCATION_MINSIZEREL "${location}"
+            IMPORTED_LOCATION_RELWITHDEBINFO "${location}"
+            IMPORTED_LOCATION_DEBUG "${location}"
+        )
+    endif()
+endfunction()
+
 # Find required dependencies for static builds
 find_dependency(Threads REQUIRED)
 
@@ -39,15 +53,31 @@ if(@DNG_WITH_JXL@)
             # Create imported targets for manual finds
             if(JXL_LIBRARY AND NOT TARGET jxl::jxl)
                 add_library(jxl::jxl UNKNOWN IMPORTED)
-                set_target_properties(jxl::jxl PROPERTIES
-                    IMPORTED_LOCATION "${JXL_LIBRARY}"
-                )
+                set_imported_location_all_configs(jxl::jxl "${JXL_LIBRARY}")
+            endif()
+            if(JXL_THREADS_LIBRARY AND NOT TARGET jxl::jxl_threads)
+                add_library(jxl::jxl_threads UNKNOWN IMPORTED)
+                set_imported_location_all_configs(jxl::jxl_threads "${JXL_THREADS_LIBRARY}")
+            endif()
+            if(JXL_CMS_LIBRARY AND NOT TARGET jxl::jxl_cms)
+                add_library(jxl::jxl_cms UNKNOWN IMPORTED)
+                set_imported_location_all_configs(jxl::jxl_cms "${JXL_CMS_LIBRARY}")
             endif()
             if(HWY_LIBRARY AND NOT TARGET hwy::hwy)
                 add_library(hwy::hwy UNKNOWN IMPORTED)
-                set_target_properties(hwy::hwy PROPERTIES
-                    IMPORTED_LOCATION "${HWY_LIBRARY}"
-                )
+                set_imported_location_all_configs(hwy::hwy "${HWY_LIBRARY}")
+            endif()
+            if(BROTLI_COMMON_LIBRARY AND NOT TARGET brotli::brotlicommon)
+                add_library(brotli::brotlicommon UNKNOWN IMPORTED)
+                set_imported_location_all_configs(brotli::brotlicommon "${BROTLI_COMMON_LIBRARY}")
+            endif()
+            if(BROTLI_DEC_LIBRARY AND NOT TARGET brotli::brotlidec)
+                add_library(brotli::brotlidec UNKNOWN IMPORTED)
+                set_imported_location_all_configs(brotli::brotlidec "${BROTLI_DEC_LIBRARY}")
+            endif()
+            if(BROTLI_ENC_LIBRARY AND NOT TARGET brotli::brotlienc)
+                add_library(brotli::brotlienc UNKNOWN IMPORTED)
+                set_imported_location_all_configs(brotli::brotlienc "${BROTLI_ENC_LIBRARY}")
             endif()
         endif()
     endif()

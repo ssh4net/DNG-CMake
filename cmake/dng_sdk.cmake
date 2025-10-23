@@ -325,103 +325,72 @@ if(DNG_WITH_JXL)
             find_library(BROTLI_ENC_LIBRARY_DEBUG NAMES brotliencd)
         endif()
 
-        # Create imported targets with generator expressions for proper debug/release selection
+        # Helper function to set imported location for all configurations
+        # Sets IMPORTED_LOCATION_<CONFIG> for Debug, Release, MinSizeRel, RelWithDebInfo
+        function(set_imported_library_locations target release_lib debug_lib)
+            if(release_lib AND debug_lib)
+                # Both debug and release variants exist
+                set_target_properties(${target} PROPERTIES
+                    IMPORTED_LOCATION_RELEASE "${release_lib}"
+                    IMPORTED_LOCATION_MINSIZEREL "${release_lib}"
+                    IMPORTED_LOCATION_RELWITHDEBINFO "${release_lib}"
+                    IMPORTED_LOCATION_DEBUG "${debug_lib}"
+                )
+            elseif(release_lib)
+                # Only release variant exists, use for all configs
+                set_target_properties(${target} PROPERTIES
+                    IMPORTED_LOCATION "${release_lib}"
+                    IMPORTED_LOCATION_RELEASE "${release_lib}"
+                    IMPORTED_LOCATION_MINSIZEREL "${release_lib}"
+                    IMPORTED_LOCATION_RELWITHDEBINFO "${release_lib}"
+                    IMPORTED_LOCATION_DEBUG "${release_lib}"
+                )
+            elseif(debug_lib)
+                # Only debug variant exists, use for all configs
+                set_target_properties(${target} PROPERTIES
+                    IMPORTED_LOCATION "${debug_lib}"
+                    IMPORTED_LOCATION_RELEASE "${debug_lib}"
+                    IMPORTED_LOCATION_MINSIZEREL "${debug_lib}"
+                    IMPORTED_LOCATION_RELWITHDEBINFO "${debug_lib}"
+                    IMPORTED_LOCATION_DEBUG "${debug_lib}"
+                )
+            endif()
+        endfunction()
+
+        # Create imported targets with all configuration variants
         if(NOT TARGET jxl::jxl)
             add_library(jxl::jxl UNKNOWN IMPORTED)
-            if(JXL_LIBRARY_RELEASE AND JXL_LIBRARY_DEBUG)
-                set_target_properties(jxl::jxl PROPERTIES
-                    IMPORTED_LOCATION_RELEASE "${JXL_LIBRARY_RELEASE}"
-                    IMPORTED_LOCATION_DEBUG "${JXL_LIBRARY_DEBUG}"
-                )
-            elseif(JXL_LIBRARY_RELEASE)
-                set_target_properties(jxl::jxl PROPERTIES IMPORTED_LOCATION "${JXL_LIBRARY_RELEASE}")
-            elseif(JXL_LIBRARY_DEBUG)
-                set_target_properties(jxl::jxl PROPERTIES IMPORTED_LOCATION "${JXL_LIBRARY_DEBUG}")
-            endif()
+            set_imported_library_locations(jxl::jxl "${JXL_LIBRARY_RELEASE}" "${JXL_LIBRARY_DEBUG}")
         endif()
         
         if(NOT TARGET jxl::jxl_threads)
             add_library(jxl::jxl_threads UNKNOWN IMPORTED)
-            if(JXL_THREADS_LIBRARY_RELEASE AND JXL_THREADS_LIBRARY_DEBUG)
-                set_target_properties(jxl::jxl_threads PROPERTIES
-                    IMPORTED_LOCATION_RELEASE "${JXL_THREADS_LIBRARY_RELEASE}"
-                    IMPORTED_LOCATION_DEBUG "${JXL_THREADS_LIBRARY_DEBUG}"
-                )
-            elseif(JXL_THREADS_LIBRARY_RELEASE)
-                set_target_properties(jxl::jxl_threads PROPERTIES IMPORTED_LOCATION "${JXL_THREADS_LIBRARY_RELEASE}")
-            elseif(JXL_THREADS_LIBRARY_DEBUG)
-                set_target_properties(jxl::jxl_threads PROPERTIES IMPORTED_LOCATION "${JXL_THREADS_LIBRARY_DEBUG}")
-            endif()
+            set_imported_library_locations(jxl::jxl_threads "${JXL_THREADS_LIBRARY_RELEASE}" "${JXL_THREADS_LIBRARY_DEBUG}")
         endif()
-        
+
         if((JXL_CMS_LIBRARY_RELEASE OR JXL_CMS_LIBRARY_DEBUG) AND NOT TARGET jxl::jxl_cms)
             add_library(jxl::jxl_cms UNKNOWN IMPORTED)
-            if(JXL_CMS_LIBRARY_RELEASE AND JXL_CMS_LIBRARY_DEBUG)
-                set_target_properties(jxl::jxl_cms PROPERTIES
-                    IMPORTED_LOCATION_RELEASE "${JXL_CMS_LIBRARY_RELEASE}"
-                    IMPORTED_LOCATION_DEBUG "${JXL_CMS_LIBRARY_DEBUG}"
-                )
-            elseif(JXL_CMS_LIBRARY_RELEASE)
-                set_target_properties(jxl::jxl_cms PROPERTIES IMPORTED_LOCATION "${JXL_CMS_LIBRARY_RELEASE}")
-            elseif(JXL_CMS_LIBRARY_DEBUG)
-                set_target_properties(jxl::jxl_cms PROPERTIES IMPORTED_LOCATION "${JXL_CMS_LIBRARY_DEBUG}")
-            endif()
+            set_imported_library_locations(jxl::jxl_cms "${JXL_CMS_LIBRARY_RELEASE}" "${JXL_CMS_LIBRARY_DEBUG}")
         endif()
-        
+
         if(NOT TARGET hwy::hwy)
             add_library(hwy::hwy UNKNOWN IMPORTED)
-            if(HWY_LIBRARY_RELEASE AND HWY_LIBRARY_DEBUG)
-                set_target_properties(hwy::hwy PROPERTIES
-                    IMPORTED_LOCATION_RELEASE "${HWY_LIBRARY_RELEASE}"
-                    IMPORTED_LOCATION_DEBUG "${HWY_LIBRARY_DEBUG}"
-                )
-            elseif(HWY_LIBRARY_RELEASE)
-                set_target_properties(hwy::hwy PROPERTIES IMPORTED_LOCATION "${HWY_LIBRARY_RELEASE}")
-            elseif(HWY_LIBRARY_DEBUG)
-                set_target_properties(hwy::hwy PROPERTIES IMPORTED_LOCATION "${HWY_LIBRARY_DEBUG}")
-            endif()
+            set_imported_library_locations(hwy::hwy "${HWY_LIBRARY_RELEASE}" "${HWY_LIBRARY_DEBUG}")
         endif()
-        
+
         if(NOT TARGET brotli::brotlicommon)
             add_library(brotli::brotlicommon UNKNOWN IMPORTED)
-            if(BROTLI_COMMON_LIBRARY_RELEASE AND BROTLI_COMMON_LIBRARY_DEBUG)
-                set_target_properties(brotli::brotlicommon PROPERTIES
-                    IMPORTED_LOCATION_RELEASE "${BROTLI_COMMON_LIBRARY_RELEASE}"
-                    IMPORTED_LOCATION_DEBUG "${BROTLI_COMMON_LIBRARY_DEBUG}"
-                )
-            elseif(BROTLI_COMMON_LIBRARY_RELEASE)
-                set_target_properties(brotli::brotlicommon PROPERTIES IMPORTED_LOCATION "${BROTLI_COMMON_LIBRARY_RELEASE}")
-            elseif(BROTLI_COMMON_LIBRARY_DEBUG)
-                set_target_properties(brotli::brotlicommon PROPERTIES IMPORTED_LOCATION "${BROTLI_COMMON_LIBRARY_DEBUG}")
-            endif()
+            set_imported_library_locations(brotli::brotlicommon "${BROTLI_COMMON_LIBRARY_RELEASE}" "${BROTLI_COMMON_LIBRARY_DEBUG}")
         endif()
         
         if(NOT TARGET brotli::brotlidec)
             add_library(brotli::brotlidec UNKNOWN IMPORTED)
-            if(BROTLI_DEC_LIBRARY_RELEASE AND BROTLI_DEC_LIBRARY_DEBUG)
-                set_target_properties(brotli::brotlidec PROPERTIES
-                    IMPORTED_LOCATION_RELEASE "${BROTLI_DEC_LIBRARY_RELEASE}"
-                    IMPORTED_LOCATION_DEBUG "${BROTLI_DEC_LIBRARY_DEBUG}"
-                )
-            elseif(BROTLI_DEC_LIBRARY_RELEASE)
-                set_target_properties(brotli::brotlidec PROPERTIES IMPORTED_LOCATION "${BROTLI_DEC_LIBRARY_RELEASE}")
-            elseif(BROTLI_DEC_LIBRARY_DEBUG)
-                set_target_properties(brotli::brotlidec PROPERTIES IMPORTED_LOCATION "${BROTLI_DEC_LIBRARY_DEBUG}")
-            endif()
+            set_imported_library_locations(brotli::brotlidec "${BROTLI_DEC_LIBRARY_RELEASE}" "${BROTLI_DEC_LIBRARY_DEBUG}")
         endif()
-        
+
         if(NOT TARGET brotli::brotlienc)
             add_library(brotli::brotlienc UNKNOWN IMPORTED)
-            if(BROTLI_ENC_LIBRARY_RELEASE AND BROTLI_ENC_LIBRARY_DEBUG)
-                set_target_properties(brotli::brotlienc PROPERTIES
-                    IMPORTED_LOCATION_RELEASE "${BROTLI_ENC_LIBRARY_RELEASE}"
-                    IMPORTED_LOCATION_DEBUG "${BROTLI_ENC_LIBRARY_DEBUG}"
-                )
-            elseif(BROTLI_ENC_LIBRARY_RELEASE)
-                set_target_properties(brotli::brotlienc PROPERTIES IMPORTED_LOCATION "${BROTLI_ENC_LIBRARY_RELEASE}")
-            elseif(BROTLI_ENC_LIBRARY_DEBUG)
-                set_target_properties(brotli::brotlienc PROPERTIES IMPORTED_LOCATION "${BROTLI_ENC_LIBRARY_DEBUG}")
-            endif()
+            set_imported_library_locations(brotli::brotlienc "${BROTLI_ENC_LIBRARY_RELEASE}" "${BROTLI_ENC_LIBRARY_DEBUG}")
         endif()
 
         # Link all JXL dependencies
