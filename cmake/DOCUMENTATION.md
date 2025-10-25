@@ -141,6 +141,7 @@ Pre-existing Doxyfile from XMP SDK. The CMake system modifies it at build time t
 - Update `OUTPUT_DIRECTORY` to point to build directory
 - Set `PROJECT_NUMBER` to current version
 - Fix `INPUT` paths (original references non-existent `../../documents/toolkit`)
+- Add custom mainpage documentation (`cmake/xmp_mainpage.dox`)
 - Set `INPUT` to all XMP toolkit directories except third-party:
   - `public/` - Public API headers
   - `source/` - Implementation source files
@@ -152,6 +153,7 @@ Pre-existing Doxyfile from XMP SDK. The CMake system modifies it at build time t
   - `XMPFilesPlugins/` - Plugin system
   - `XMPScript/` - Scripting support
   - `XMPWasm/` - WebAssembly support
+- Fix `FILE_PATTERNS` to include all C/C++ files (was only `Overview.txt`)
 - Enable `RECURSIVE = YES` to scan all subdirectories
 - Enable comprehensive documentation features to match DNG SDK quality:
   - `EXTRACT_ALL = YES` - Documents all entities (not just documented ones)

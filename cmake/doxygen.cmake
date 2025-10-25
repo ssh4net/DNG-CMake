@@ -106,9 +106,9 @@ if(DNG_WITH_XMP)
                XMP_DOXYFILE_CONTENT "${XMP_DOXYFILE_CONTENT}")
 
         # Fix INPUT paths - the original references non-existent ../../documents/toolkit
-        # Document all XMP toolkit directories except third-party
+        # Document all XMP toolkit directories except third-party, plus mainpage documentation
         string(REGEX REPLACE "INPUT[ \t]*=[ \t]*[^\n]*(\n[ \t]*[^\n]+)*"
-               "INPUT                  = ${CMAKE_SOURCE_DIR}/xmp/toolkit/public \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/source \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPCommon \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPCompareAndMerge \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPCore \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPExtensions \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPFiles \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPFilesPlugins \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPScript \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPWasm"
+               "INPUT                  = ${CMAKE_SOURCE_DIR}/cmake/xmp_mainpage.dox \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/public \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/source \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPCommon \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPCompareAndMerge \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPCore \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPExtensions \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPFiles \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPFilesPlugins \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPScript \\\\\n                         ${CMAKE_SOURCE_DIR}/xmp/toolkit/XMPWasm"
                XMP_DOXYFILE_CONTENT "${XMP_DOXYFILE_CONTENT}")
 
         # Enable RECURSIVE to scan all subdirectories
@@ -136,6 +136,11 @@ if(DNG_WITH_XMP)
                XMP_DOXYFILE_CONTENT "${XMP_DOXYFILE_CONTENT}")
         string(REGEX REPLACE "EXPAND_ONLY_PREDEF[ \t]*=[ \t]*NO"
                "EXPAND_ONLY_PREDEF     = YES"
+               XMP_DOXYFILE_CONTENT "${XMP_DOXYFILE_CONTENT}")
+
+        # Fix FILE_PATTERNS to include all C/C++ source files (not just Overview.txt)
+        string(REGEX REPLACE "FILE_PATTERNS[ \t]*=[ \t]*[^\n]*(\n[ \t]+[^\n]+)*"
+               "FILE_PATTERNS          = *.c *.cc *.cxx *.cpp *.c++ *.h *.hh *.hxx *.hpp *.h++ *.dox"
                XMP_DOXYFILE_CONTENT "${XMP_DOXYFILE_CONTENT}")
 
         # Remove obsolete HTML_HEADER, HTML_FOOTER, HTML_STYLESHEET that reference missing files

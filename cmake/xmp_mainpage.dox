@@ -1,0 +1,138 @@
+/** \mainpage XMP Toolkit SDK 7.0
+ *
+ * \section Intro Introduction
+ *
+ * The XMP (Extensible Metadata Platform) Toolkit SDK provides tools for parsing,
+ * manipulating, and serializing XMP metadata in various file formats. XMP is an
+ * ISO standard (ISO 16684-1) for embedding metadata in digital documents and
+ * media files.
+ *
+ * This toolkit is part of the Adobe DNG SDK 1.7.1 distribution and provides the
+ * metadata handling capabilities used by DNG and other Adobe file formats.
+ *
+ * **Component Versions:**
+ * - XMPCore: 7.0
+ * - XMPFiles: 7.0
+ * - XMPScript: 6.0
+ * - XMPCompareAndMerge: 3.0
+ * - XMPExtensions: 2.0
+ *
+ * \section Components SDK Components
+ *
+ * The XMP Toolkit SDK contains two main libraries:
+ *
+ * **XMPCore** provides the tools that allow you to parse, manipulate, and serialize
+ * XMP data, according to the Data Model and Serialization Model given in the XMP
+ * Specification. XMPCore has no knowledge of files.
+ *
+ * The client view of the XMPCore API is provided through these C++ class templates:
+ * - TXMPMeta provides the fundamental methods for manipulating XMP metadata
+ * - TXMPIterator provides methods to iterate over existing XMP metadata
+ * - TXMPUtils provides additional utilities layered on top of TXMPMeta
+ *
+ * **XMPFiles** provides support for locating the XMP in a file, adding XMP to a file,
+ * or updating the XMP in a file. Use it to retrieve an entire XMP packet from a file,
+ * which you can either manipulate directly or use to create a TXMPMeta object to
+ * manipulate individual XMP properties. XMPFiles contains format-specific file handlers
+ * that know how to efficiently access the XMP in particular formats. It also includes
+ * a fallback packet scanner that can be used for unknown file formats.
+ *
+ * The client view of the XMPFiles API is provided through TXMPFiles.
+ *
+ * \section Templates Template Classes
+ *
+ * The TXMP* classes are C++ template classes. The templates must be instantiated for use.
+ * You can read the template header files (TXMPMeta.hpp, etc.) for detailed information,
+ * but do not include them directly in your code.
+ *
+ * There is one overall header file, XMP.hpp, which is the only one that C++ clients should
+ * include. Read the instructions in this file for instantiating the template classes.
+ * When you have done this, the API is available through the concrete classes SXMPMeta,
+ * SXMPUtils, SXMPIterator, and SXMPFiles.
+ *
+ * You should also read XMP_Const.h for detailed information about types and constants
+ * for namespace URIs and option flags.
+ *
+ * \section Using Using the XMP Toolkit API
+ *
+ * Developers should understand the XMP Data Model before working with the XMP Toolkit.
+ * The data model is documented in the XMP Specification.
+ *
+ * Use of the XMP Toolkit is straightforward once you understand the XMP Data Model.
+ * An XMP property tree that conforms to the Data Model is encapsulated by a TXMPMeta
+ * object, and the functions of that class allow you to manipulate the namespaces,
+ * properties, and values.
+ *
+ * To prepare XMP data for output (transferring it or embedding it in a file), it must
+ * be serialized as XML text (specifically, RDF conforming to the Serialization Model).
+ *
+ * - Use TXMPMeta::SerializeToBuffer() to create the serialized XML for the data contained
+ *   in the object
+ * - Use the XMPFiles component (TXMPFiles::OpenFile() and TXMPFiles::PutXMP()) to write
+ *   out the serialized XMP as an XMP packet embedded in a file
+ *
+ * Similarly, you use the XMPFiles component (TXMPFiles::GetXMP()) to extract an XMP packet
+ * from a file. To work with the XMP, create a TXMPMeta object and populate it with the data
+ * using TXMPMeta::ParseFromBuffer().
+ *
+ * You can use the XMPCore component to generate new XMP data:
+ * - You can create your own private namespaces, but must register them before use, using
+ *   TXMPMeta::RegisterNamespace()
+ * - Property accessor functions allow you to retrieve and set existing property values,
+ *   and to create new properties
+ * - You can get and set property values as strings, or as binary types. TXMPUtils provides
+ *   functions for converting between types
+ * - Use TXMPMeta::GetLocalizedText() and TXMPMeta::SetLocalizedText() when dealing with
+ *   language alternative (alt-text) arrays
+ * - Use the path composition functions provided by TXMPUtils to construct complex paths
+ *   with nested structs or arrays. Rather than hard-coding namespace prefixes, use functions
+ *   like TXMPUtils::ComposeStructFieldPath() and TXMPMeta::SetStructField()
+ * - Create a TXMPIterator object to operate on all or a subset of the properties in the
+ *   metadata tree contained in a TXMPMeta object
+ *
+ * \section Example Basic Usage Example
+ *
+ * \code{.cpp}
+ * #include "XMP.hpp"
+ *
+ * // Initialize XMP Toolkit
+ * if (!SXMPMeta::Initialize()) {
+ *     // Handle initialization error
+ * }
+ *
+ * // Create metadata object
+ * SXMPMeta meta;
+ *
+ * // Set a property
+ * meta.SetProperty(kXMP_NS_DC, "creator", "John Doe");
+ *
+ * // Serialize to string
+ * std::string xmpPacket;
+ * meta.SerializeToBuffer(&xmpPacket);
+ *
+ * // Open a file and update XMP
+ * SXMPFiles file;
+ * file.OpenFile("photo.jpg", kXMP_UnknownFile, kXMPFiles_OpenForUpdate);
+ * file.PutXMP(meta);
+ * file.CloseFile();
+ *
+ * // Cleanup
+ * SXMPMeta::Terminate();
+ * \endcode
+ *
+ * \section Standards Standards Compliance
+ *
+ * The XMP Toolkit implements:
+ * - ISO 16684-1:2011 (XMP Specification Part 1)
+ * - W3C RDF/XML specifications
+ * - Dublin Core metadata elements
+ * - IPTC Core and Extension schemas
+ * - Exif metadata mapping
+ *
+ * \section Resources Additional Resources
+ *
+ * - XMP Specification: https://www.adobe.com/devnet/xmp.html
+ * - ISO 16684-1:2011 Standard
+ * - DNG SDK Documentation (parent project)
+ * - XMP Programmer's Guide (see docs/ folder in standalone XMP SDK)
+ */
