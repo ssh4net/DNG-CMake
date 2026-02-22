@@ -28,67 +28,118 @@ endif()
 
 # JPEG-XL support with all dependencies (optional)
 if(@DNG_WITH_JXL@)
+    # libjxl_cms typically depends on lcms2 for color transforms.
+    find_dependency(lcms2 CONFIG QUIET)
+
     # Try to use find_package for libjxl if available
     find_package(libjxl CONFIG QUIET)
     if(NOT libjxl_FOUND)
-        # Fallback to PkgConfig
-        find_package(PkgConfig QUIET)
-        if(PkgConfig_FOUND)
-            pkg_check_modules(JXL REQUIRED IMPORTED_TARGET libjxl)
-            pkg_check_modules(JXL_THREADS REQUIRED IMPORTED_TARGET libjxl_threads)
-            pkg_check_modules(HWY REQUIRED IMPORTED_TARGET libhwy)
-            pkg_check_modules(BROTLI_DEC REQUIRED IMPORTED_TARGET libbrotlidec)
-            pkg_check_modules(BROTLI_ENC REQUIRED IMPORTED_TARGET libbrotlienc)
-            pkg_check_modules(BROTLI_COMMON REQUIRED IMPORTED_TARGET libbrotlicommon)
-        else()
-            # Last resort: find libraries manually
-            find_library(JXL_LIBRARY NAMES jxl REQUIRED)
-            find_library(JXL_THREADS_LIBRARY NAMES jxl_threads REQUIRED)
-            find_library(JXL_CMS_LIBRARY NAMES jxl_cms)
-            find_library(HWY_LIBRARY NAMES hwy REQUIRED)
-            find_library(BROTLI_COMMON_LIBRARY NAMES brotlicommon REQUIRED)
-            find_library(BROTLI_DEC_LIBRARY NAMES brotlidec REQUIRED)
-            find_library(BROTLI_ENC_LIBRARY NAMES brotlienc REQUIRED)
+        # Fallback: resolve required libraries directly without pkg-config.
+        # This avoids propagating stale include paths from third-party .pc files.
+        find_library(JXL_LIBRARY NAMES jxl REQUIRED)
+        find_library(JXL_THREADS_LIBRARY NAMES jxl_threads REQUIRED)
+        find_library(JXL_CMS_LIBRARY NAMES jxl_cms)
+        find_library(HWY_LIBRARY NAMES hwy REQUIRED)
+        find_library(BROTLI_COMMON_LIBRARY NAMES brotlicommon REQUIRED)
+        find_library(BROTLI_DEC_LIBRARY NAMES brotlidec REQUIRED)
+        find_library(BROTLI_ENC_LIBRARY NAMES brotlienc REQUIRED)
 
-            # Create imported targets for manual finds
-            if(JXL_LIBRARY AND NOT TARGET jxl::jxl)
-                add_library(jxl::jxl UNKNOWN IMPORTED)
-                set_imported_location_all_configs(jxl::jxl "${JXL_LIBRARY}")
+        if(JXL_LIBRARY AND NOT TARGET jxl::jxl)
+            add_library(jxl::jxl UNKNOWN IMPORTED)
+            set_imported_location_all_configs(jxl::jxl "${JXL_LIBRARY}")
+        endif()
+        if(JXL_THREADS_LIBRARY AND NOT TARGET jxl::jxl_threads)
+            add_library(jxl::jxl_threads UNKNOWN IMPORTED)
+            set_imported_location_all_configs(jxl::jxl_threads "${JXL_THREADS_LIBRARY}")
+        endif()
+        if(JXL_CMS_LIBRARY AND NOT TARGET jxl::jxl_cms)
+            add_library(jxl::jxl_cms UNKNOWN IMPORTED)
+            set_imported_location_all_configs(jxl::jxl_cms "${JXL_CMS_LIBRARY}")
+        endif()
+        if(HWY_LIBRARY AND NOT TARGET hwy::hwy)
+            add_library(hwy::hwy UNKNOWN IMPORTED)
+            set_imported_location_all_configs(hwy::hwy "${HWY_LIBRARY}")
+        endif()
+        if(BROTLI_COMMON_LIBRARY AND NOT TARGET brotli::brotlicommon)
+            add_library(brotli::brotlicommon UNKNOWN IMPORTED)
+            set_imported_location_all_configs(brotli::brotlicommon "${BROTLI_COMMON_LIBRARY}")
+        endif()
+        if(BROTLI_DEC_LIBRARY AND NOT TARGET brotli::brotlidec)
+            add_library(brotli::brotlidec UNKNOWN IMPORTED)
+            set_imported_location_all_configs(brotli::brotlidec "${BROTLI_DEC_LIBRARY}")
+        endif()
+        if(BROTLI_ENC_LIBRARY AND NOT TARGET brotli::brotlienc)
+            add_library(brotli::brotlienc UNKNOWN IMPORTED)
+            set_imported_location_all_configs(brotli::brotlienc "${BROTLI_ENC_LIBRARY}")
+        endif()
+    endif()
+
+    # jxl_cms requires lcms2 in common static builds.
+    if(TARGET jxl::jxl_cms)
+        set(_dng_lcms2_release "")
+        set(_dng_lcms2_debug "")
+        set(_dng_lcms2_any "")
+        if(TARGET lcms2::lcms2)
+            get_target_property(_dng_lcms2_release lcms2::lcms2 IMPORTED_LOCATION_RELEASE)
+            get_target_property(_dng_lcms2_debug lcms2::lcms2 IMPORTED_LOCATION_DEBUG)
+            get_target_property(_dng_lcms2_any lcms2::lcms2 IMPORTED_LOCATION)
+        endif()
+        if(NOT _dng_lcms2_release AND NOT _dng_lcms2_debug AND _dng_lcms2_any)
+            set(_dng_lcms2_release "${_dng_lcms2_any}")
+        endif()
+        if(NOT _dng_lcms2_release AND NOT _dng_lcms2_debug)
+            find_library(_dng_lcms2_release NAMES lcms2)
+        endif()
+
+        if((_dng_lcms2_release OR _dng_lcms2_debug) AND NOT TARGET dng_sdk::lcms2)
+            add_library(dng_sdk::lcms2 UNKNOWN IMPORTED)
+            if(_dng_lcms2_release)
+                set_target_properties(dng_sdk::lcms2 PROPERTIES
+                    IMPORTED_LOCATION "${_dng_lcms2_release}"
+                    IMPORTED_LOCATION_RELEASE "${_dng_lcms2_release}"
+                    IMPORTED_LOCATION_MINSIZEREL "${_dng_lcms2_release}"
+                    IMPORTED_LOCATION_RELWITHDEBINFO "${_dng_lcms2_release}"
+                )
             endif()
-            if(JXL_THREADS_LIBRARY AND NOT TARGET jxl::jxl_threads)
-                add_library(jxl::jxl_threads UNKNOWN IMPORTED)
-                set_imported_location_all_configs(jxl::jxl_threads "${JXL_THREADS_LIBRARY}")
+            if(_dng_lcms2_debug)
+                set_target_properties(dng_sdk::lcms2 PROPERTIES IMPORTED_LOCATION_DEBUG "${_dng_lcms2_debug}")
             endif()
-            if(JXL_CMS_LIBRARY AND NOT TARGET jxl::jxl_cms)
-                add_library(jxl::jxl_cms UNKNOWN IMPORTED)
-                set_imported_location_all_configs(jxl::jxl_cms "${JXL_CMS_LIBRARY}")
-            endif()
-            if(HWY_LIBRARY AND NOT TARGET hwy::hwy)
-                add_library(hwy::hwy UNKNOWN IMPORTED)
-                set_imported_location_all_configs(hwy::hwy "${HWY_LIBRARY}")
-            endif()
-            if(BROTLI_COMMON_LIBRARY AND NOT TARGET brotli::brotlicommon)
-                add_library(brotli::brotlicommon UNKNOWN IMPORTED)
-                set_imported_location_all_configs(brotli::brotlicommon "${BROTLI_COMMON_LIBRARY}")
-            endif()
-            if(BROTLI_DEC_LIBRARY AND NOT TARGET brotli::brotlidec)
-                add_library(brotli::brotlidec UNKNOWN IMPORTED)
-                set_imported_location_all_configs(brotli::brotlidec "${BROTLI_DEC_LIBRARY}")
-            endif()
-            if(BROTLI_ENC_LIBRARY AND NOT TARGET brotli::brotlienc)
-                add_library(brotli::brotlienc UNKNOWN IMPORTED)
-                set_imported_location_all_configs(brotli::brotlienc "${BROTLI_ENC_LIBRARY}")
+            if(TARGET lcms2::lcms2)
+                get_target_property(_dng_lcms2_iface_links lcms2::lcms2 INTERFACE_LINK_LIBRARIES)
+                if(_dng_lcms2_iface_links)
+                    set_target_properties(dng_sdk::lcms2 PROPERTIES INTERFACE_LINK_LIBRARIES "${_dng_lcms2_iface_links}")
+                endif()
             endif()
         endif()
+
+        if(TARGET dng_sdk::lcms2)
+            target_link_libraries(jxl::jxl_cms INTERFACE dng_sdk::lcms2)
+        else()
+            message(WARNING "Found jxl_cms but could not resolve lcms2 dependency. Static links may fail for jxl_cms users.")
+        endif()
+
+        unset(_dng_lcms2_release)
+        unset(_dng_lcms2_debug)
+        unset(_dng_lcms2_any)
+        unset(_dng_lcms2_iface_links)
     endif()
 endif()
 
 # XMP Toolkit support (optional)
 if(@DNG_WITH_XMP@)
-    # Try to find XMP as a package first
-    find_package(XMPToolkit @PROJECT_VERSION@ QUIET
-        HINTS "${CMAKE_CURRENT_LIST_DIR}/../XMPToolkit"
-    )
+    # Prefer direct include from sibling install path (handles nonstandard
+    # XMPToolkit-config.cmake naming reliably on case-sensitive filesystems).
+    set(_dng_xmp_config "${CMAKE_CURRENT_LIST_DIR}/../XMPToolkit/XMPToolkit-config.cmake")
+    if(EXISTS "${_dng_xmp_config}")
+        include("${_dng_xmp_config}")
+        set(XMPToolkit_FOUND TRUE)
+    else()
+        # Fallback to regular package lookup.
+        find_package(XMPToolkit @PROJECT_VERSION@ QUIET
+            HINTS "${CMAKE_CURRENT_LIST_DIR}/../XMPToolkit"
+        )
+    endif()
+    unset(_dng_xmp_config)
 
     if(NOT XMPToolkit_FOUND)
         # XMP dependencies
@@ -108,7 +159,11 @@ include("${CMAKE_CURRENT_LIST_DIR}/dng_sdk-targets.cmake")
 
 # Set convenient variables for downstream projects
 set(dng_sdk_LIBRARIES dng_sdk::dng_sdk)
-set(dng_sdk_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@")
+set(dng_sdk_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@/dng_sdk")
 set(dng_sdk_VERSION "@PROJECT_VERSION@")
+
+# Convenience: platform + required compile definitions for headers (also provided via target usage requirements).
+set(dng_sdk_PLATFORM "@DNG_PLATFORM_ID@")
+set(dng_sdk_PLATFORM_DEFINITIONS @DNG_SDK_PLATFORM_QDEFS@)
 
 check_required_components(dng_sdk)

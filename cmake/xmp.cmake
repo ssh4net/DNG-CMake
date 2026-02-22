@@ -3,24 +3,19 @@
 # Compute repository root relative to this CMake file (cmake -> repo root)
 get_filename_component(REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 
-# Auto-detect and define exactly one XMP platform macro for this subproject
-if(EMSCRIPTEN)
-    set(XMP_ENV_DEF WEB_ENV)
-elseif(ANDROID)
-    set(XMP_ENV_DEF ANDROID_ENV)
-elseif(APPLE)
-    if(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
-        set(XMP_ENV_DEF IOS_ENV)
-    else()
-        set(XMP_ENV_DEF MAC_ENV)
-    endif()
-elseif(WIN32)
-    set(XMP_ENV_DEF WIN_ENV)
-else()
-    set(XMP_ENV_DEF UNIX_ENV)
-endif()
+# NOTE: Platform macros for consumers are exported via INTERFACE compile definitions
+# (see XMP_TOOLKIT_INTERFACE_DEFINITIONS from the top-level CMakeLists.txt).
 
-add_compile_definitions(${XMP_ENV_DEF})
+# Resolve the active XMP *_ENV macro once (WIN_ENV, MAC_ENV, IOS_ENV, ANDROID_ENV, WEB_ENV, UNIX_ENV).
+set(XMP_TOOLKIT_ENV_DEFINITION "UNIX_ENV")
+if(DEFINED XMP_TOOLKIT_INTERFACE_DEFINITIONS)
+    foreach(_xmp_iface_def IN LISTS XMP_TOOLKIT_INTERFACE_DEFINITIONS)
+        if(_xmp_iface_def MATCHES "_ENV$")
+            set(XMP_TOOLKIT_ENV_DEFINITION "${_xmp_iface_def}")
+            break()
+        endif()
+    endforeach()
+endif()
 
 # XMPCore Static Library
 add_library(XMPCoreStatic STATIC
@@ -67,62 +62,28 @@ set_target_properties(XMPCoreStatic PROPERTIES
     DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
 )
 
-# XMPCore definitions
-if(WIN32)
-    target_compile_definitions(XMPCoreStatic PRIVATE
-        XML_POOR_ENTROPY
-        WIN_ENV
-        _CRT_SECURE_NO_WARNINGS=1
-        _SCL_SECURE_NO_WARNINGS=1
-        NOMINMAX
-        UNICODE
-        _UNICODE
-        AdobePrivate=1
-        ENABLE_CPP_DOM_MODEL=0
-        XML_STATIC=1
-        HAVE_EXPAT_CONFIG_H=1
-        XMP_StaticBuild=1
-        BUILDING_XMPCORE_LIB=1
-        XMP_COMPONENT_INT_NAMESPACE=AdobeXMPCore_Int
-        BUILDING_XMPCORE_AS_STATIC=1
-    )
-elseif(APPLE)
-    target_compile_definitions(XMPCoreStatic PRIVATE
-        XML_POOR_ENTROPY
-        MAC_ENV
-        _CRT_SECURE_NO_WARNINGS=1
-        _SCL_SECURE_NO_WARNINGS=1
-        NOMINMAX
-        UNICODE
-        _UNICODE
-        AdobePrivate=1
-        ENABLE_CPP_DOM_MODEL=0
-        XML_STATIC=1
-        HAVE_EXPAT_CONFIG_H=1
-        XMP_StaticBuild=1
-        BUILDING_XMPCORE_LIB=1
-        XMP_COMPONENT_INT_NAMESPACE=AdobeXMPCore_Int
-        BUILDING_XMPCORE_AS_STATIC=1
-    )
-else()
-    target_compile_definitions(XMPCoreStatic PRIVATE
-        XML_POOR_ENTROPY
-        UNIX_ENV
-        _CRT_SECURE_NO_WARNINGS=1
-        _SCL_SECURE_NO_WARNINGS=1
-        NOMINMAX
-        UNICODE
-        _UNICODE
-        AdobePrivate=1
-        ENABLE_CPP_DOM_MODEL=0
-        XML_STATIC=1
-        HAVE_EXPAT_CONFIG_H=1
-        XMP_StaticBuild=1
-        BUILDING_XMPCORE_LIB=1
-        XMP_COMPONENT_INT_NAMESPACE=AdobeXMPCore_Int
-        BUILDING_XMPCORE_AS_STATIC=1
-    )
+if(DEFINED XMP_TOOLKIT_INTERFACE_DEFINITIONS)
+    target_compile_definitions(XMPCoreStatic INTERFACE ${XMP_TOOLKIT_INTERFACE_DEFINITIONS})
 endif()
+
+# XMPCore definitions
+target_compile_definitions(XMPCoreStatic PRIVATE
+    XML_POOR_ENTROPY
+    ${XMP_TOOLKIT_ENV_DEFINITION}
+    _CRT_SECURE_NO_WARNINGS=1
+    _SCL_SECURE_NO_WARNINGS=1
+    NOMINMAX
+    UNICODE
+    _UNICODE
+    AdobePrivate=1
+    ENABLE_CPP_DOM_MODEL=0
+    XML_STATIC=1
+    HAVE_EXPAT_CONFIG_H=1
+    XMP_StaticBuild=1
+    BUILDING_XMPCORE_LIB=1
+    XMP_COMPONENT_INT_NAMESPACE=AdobeXMPCore_Int
+    BUILDING_XMPCORE_AS_STATIC=1
+)
 
 # Locate expat headers via CMAKE_PREFIX_PATH (e.g., E:/DVS). Make optional based on DNG_WITH_XMP
 find_path(EXPAT_INCLUDE_DIR NAMES expat.h PATH_SUFFIXES include)
@@ -138,6 +99,11 @@ target_include_directories(XMPCoreStatic PRIVATE
 if(EXPAT_INCLUDE_DIR)
     target_include_directories(XMPCoreStatic PRIVATE ${EXPAT_INCLUDE_DIR})
 endif()
+
+target_include_directories(XMPCoreStatic
+    PUBLIC
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/xmp>
+)
 
 # Boost UUID headers: use the option from main CMakeLists.txt
 if(XMP_USE_SYSTEM_BOOST)
@@ -296,6 +262,10 @@ set_target_properties(XMPFilesStatic PROPERTIES
     DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
 )
 
+if(DEFINED XMP_TOOLKIT_INTERFACE_DEFINITIONS)
+    target_compile_definitions(XMPFilesStatic INTERFACE ${XMP_TOOLKIT_INTERFACE_DEFINITIONS})
+endif()
+
 # Install XMP public headers (not part of export, installed separately)
 # For static library builds, we only need the headers, not the .cpp/.incl_cpp template files
 install(DIRECTORY ${REPO_ROOT}/xmp/toolkit/public/include/
@@ -307,62 +277,24 @@ install(DIRECTORY ${REPO_ROOT}/xmp/toolkit/public/include/
     PATTERN "client-glue" EXCLUDE # Exclude client glue code (not needed for static builds)
 )
 
-# XMPFiles definitions  
-if(WIN32)
-    target_compile_definitions(XMPFilesStatic PRIVATE
-        XML_POOR_ENTROPY
-        WIN_ENV
-        _CRT_SECURE_NO_WARNINGS=1
-        _SCL_SECURE_NO_WARNINGS=1
-        NOMINMAX
-        UNICODE
-        _UNICODE
-        AdobePrivate=1
-        ENABLE_CPP_DOM_MODEL=0
-        XML_STATIC=1
-        HAVE_EXPAT_CONFIG_H=1
-        XMP_StaticBuild=1
-        BUILDING_XMPFILES_LIB=1
-        XMP_COMPONENT_INT_NAMESPACE=AdobeXMPFiles_Int
-        BUILDING_XMPFILES_AS_STATIC=1
-    )
-elseif(APPLE)
-    target_compile_definitions(XMPFilesStatic PRIVATE
-        XML_POOR_ENTROPY
-        MAC_ENV
-        _CRT_SECURE_NO_WARNINGS=1
-        _SCL_SECURE_NO_WARNINGS=1
-        NOMINMAX
-        UNICODE
-        _UNICODE
-        AdobePrivate=1
-        ENABLE_CPP_DOM_MODEL=0
-        XML_STATIC=1
-        HAVE_EXPAT_CONFIG_H=1
-        XMP_StaticBuild=1
-        BUILDING_XMPFILES_LIB=1
-        XMP_COMPONENT_INT_NAMESPACE=AdobeXMPFiles_Int
-        BUILDING_XMPFILES_AS_STATIC=1
-    )
-else()
-    target_compile_definitions(XMPFilesStatic PRIVATE
-        XML_POOR_ENTROPY
-        UNIX_ENV
-        _CRT_SECURE_NO_WARNINGS=1
-        _SCL_SECURE_NO_WARNINGS=1
-        NOMINMAX
-        UNICODE
-        _UNICODE
-        AdobePrivate=1
-        ENABLE_CPP_DOM_MODEL=0
-        XML_STATIC=1
-        HAVE_EXPAT_CONFIG_H=1
-        XMP_StaticBuild=1
-        BUILDING_XMPFILES_LIB=1
-        XMP_COMPONENT_INT_NAMESPACE=AdobeXMPFiles_Int
-        BUILDING_XMPFILES_AS_STATIC=1
-    )
-endif()
+# XMPFiles definitions
+target_compile_definitions(XMPFilesStatic PRIVATE
+    XML_POOR_ENTROPY
+    ${XMP_TOOLKIT_ENV_DEFINITION}
+    _CRT_SECURE_NO_WARNINGS=1
+    _SCL_SECURE_NO_WARNINGS=1
+    NOMINMAX
+    UNICODE
+    _UNICODE
+    AdobePrivate=1
+    ENABLE_CPP_DOM_MODEL=0
+    XML_STATIC=1
+    HAVE_EXPAT_CONFIG_H=1
+    XMP_StaticBuild=1
+    BUILDING_XMPFILES_LIB=1
+    XMP_COMPONENT_INT_NAMESPACE=AdobeXMPFiles_Int
+    BUILDING_XMPFILES_AS_STATIC=1
+)
 
 # XMPFiles include directories
 target_include_directories(XMPFilesStatic PRIVATE
@@ -374,6 +306,11 @@ target_include_directories(XMPFilesStatic PRIVATE
 if(EXPAT_INCLUDE_DIR)
     target_include_directories(XMPFilesStatic PRIVATE ${EXPAT_INCLUDE_DIR})
 endif()
+
+target_include_directories(XMPFilesStatic
+    PUBLIC
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/xmp>
+)
 
 # Link XMPFiles with XMPCore
 target_link_libraries(XMPFilesStatic PUBLIC

@@ -21,6 +21,7 @@ The build system uses the following system libraries by default:
 - **zlib** (ZIP compression) zlib or zlib-ng in zlib compatible mode
 - **libjpeg** (JPEG support) jpeg or turbo-jpeg
 - **libjxl** (JPEGXL support)
+- **lcms2** (required by `libjxl_cms` for color transforms)
 - **libexpat** (XML parsing)
 - **libbrotli** (Brotli compression for JPEGXL)
 - **libhwy** (Google Highway SIMD library for JPEGXL)
@@ -105,6 +106,7 @@ sudo apt install -y \
     build-essential \
     libjpeg-dev \
     libjxl-dev \
+    liblcms2-dev \
     libexpat1-dev \
     zlib1g-dev \
     libbrotli-dev \
@@ -118,7 +120,7 @@ sudo apt install -y \
 Use vcpkg or manually install the required libraries:
 
 ```cmd
-vcpkg install zlib:x64-windows libjpeg-turbo:x64-windows libjxl:x64-windows expat:x64-windows boost-uuid:x64-windows
+vcpkg install zlib:x64-windows libjpeg-turbo:x64-windows libjxl:x64-windows lcms2:x64-windows expat:x64-windows boost-uuid:x64-windows
 ```
 
 ## Building
@@ -137,8 +139,19 @@ cmake -G Ninja \
       -DCMAKE_C_COMPILER=clang-20 \
       -DCMAKE_CXX_COMPILER=clang++-20 \
       -DCMAKE_BUILD_TYPE=Release \
+      -DDNG_CLANG_STDLIB=default \
+      -DCMAKE_PREFIX_PATH=/path/to/deps \
       ..
 ```
+
+**ABI note (Clang on Linux):** pick `DNG_CLANG_STDLIB` to match your dependency ABI:
+- `default` (recommended): use Clang toolchain default (typically `libstdc++` on Linux)
+- `libstdc++`: force GNU C++ standard library
+- `libc++`: force LLVM C++ standard library
+
+Examples:
+- `-DDNG_CLANG_STDLIB=libstdc++ -DCMAKE_PREFIX_PATH=/mnt/e/UBSTD/Release`
+- `-DDNG_CLANG_STDLIB=libc++ -DCMAKE_PREFIX_PATH=/mnt/e/UBc/Release`
 
 3. Build:
 ```bash
@@ -253,6 +266,8 @@ When enabled, requires Doxygen to be installed on your system. Generates HTML do
 - `-DXMP_USE_SYSTEM_BOOST=ON/OFF` - Use system Boost UUID instead of vendored (default: OFF)
 - `-DXMP_ROOT=<path>` - Path to XMP toolkit root if not in repo
 - `-DCMAKE_PREFIX_PATH=<paths>` - Semicolon-separated library search paths
+- `-DDNG_CLANG_STDLIB=default|libstdc++|libc++` - Clang C++ standard library selection on non-MSVC Clang builds (default: `default`)
+- `-DDNG_TARGET_PLATFORM=auto|windows|macos|ios|linux|android|web` - Resolved platform macros exported to consumers (default: `auto`)
 
 ## Output
 

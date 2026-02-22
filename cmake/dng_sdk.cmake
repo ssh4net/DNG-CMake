@@ -79,6 +79,48 @@ set_target_properties(dng_sdk PROPERTIES
     DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
 )
 
+target_include_directories(dng_sdk
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/dng_sdk/source>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/dng_sdk>
+)
+
+# Helper to apply release/debug imported locations consistently.
+function(set_imported_library_locations target release_lib debug_lib)
+    if(release_lib AND debug_lib)
+        # Both debug and release variants exist.
+        set_target_properties(${target} PROPERTIES
+            IMPORTED_LOCATION_RELEASE "${release_lib}"
+            IMPORTED_LOCATION_MINSIZEREL "${release_lib}"
+            IMPORTED_LOCATION_RELWITHDEBINFO "${release_lib}"
+            IMPORTED_LOCATION_DEBUG "${debug_lib}"
+        )
+    elseif(release_lib)
+        # Only release variant exists, use for all configs.
+        set_target_properties(${target} PROPERTIES
+            IMPORTED_LOCATION "${release_lib}"
+            IMPORTED_LOCATION_RELEASE "${release_lib}"
+            IMPORTED_LOCATION_MINSIZEREL "${release_lib}"
+            IMPORTED_LOCATION_RELWITHDEBINFO "${release_lib}"
+            IMPORTED_LOCATION_DEBUG "${release_lib}"
+        )
+    elseif(debug_lib)
+        # Only debug variant exists, use for all configs.
+        set_target_properties(${target} PROPERTIES
+            IMPORTED_LOCATION "${debug_lib}"
+            IMPORTED_LOCATION_RELEASE "${debug_lib}"
+            IMPORTED_LOCATION_MINSIZEREL "${debug_lib}"
+            IMPORTED_LOCATION_RELWITHDEBINFO "${debug_lib}"
+            IMPORTED_LOCATION_DEBUG "${debug_lib}"
+        )
+    endif()
+endfunction()
+
+# Export required platform macros to consumers (prevents dng_flags.h from including RawEnvironment.h).
+if(DEFINED DNG_SDK_PLATFORM_QDEFS)
+    target_compile_definitions(dng_sdk PUBLIC ${DNG_SDK_PLATFORM_QDEFS})
+endif()
+
 # Ensure validator globals (gVerbose, gDumpLineLimit) are linked from the library
 # by forcing qDNGValidate for dng_globals.cpp only, mirroring VS validate build behavior.
 set_source_files_properties(
@@ -89,31 +131,24 @@ set_source_files_properties(
 
 # DNG SDK specific definitions from top-level options
 if(DNG_WITH_XMP)
-    target_compile_definitions(dng_sdk PRIVATE qDNGUseXMP=1)
-    # Propagate XMP environment macros for code that includes XMP public headers
-    if(EMSCRIPTEN)
-        target_compile_definitions(dng_sdk PRIVATE WEB_ENV XMP_WebBuild)
-    elseif(ANDROID)
-        target_compile_definitions(dng_sdk PRIVATE ANDROID_ENV XMP_AndroidBuild)
-    elseif(APPLE)
-        if(IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
-            target_compile_definitions(dng_sdk PRIVATE IOS_ENV XMP_iOSBuild)
-        else()
-            target_compile_definitions(dng_sdk PRIVATE MAC_ENV XMP_MacBuild)
-        endif()
-    elseif(WIN32)
-        target_compile_definitions(dng_sdk PRIVATE WIN_ENV XMP_WinBuild)
-    else()
-        target_compile_definitions(dng_sdk PRIVATE UNIX_ENV XMP_UNIXBuild)
+    target_compile_definitions(dng_sdk PUBLIC qDNGUseXMP=1)
+    # Provide XMP platform macros to consumers as well (use the same resolved platform as the build/install).
+    if(DEFINED XMP_TOOLKIT_INTERFACE_DEFINITIONS)
+        target_compile_definitions(dng_sdk PUBLIC ${XMP_TOOLKIT_INTERFACE_DEFINITIONS})
     endif()
+else()
+    target_compile_definitions(dng_sdk PUBLIC qDNGUseXMP=0)
 endif()
 if(DNG_WITH_JPEG)
-    target_compile_definitions(dng_sdk PRIVATE qDNGUseLibJPEG=1)
+    target_compile_definitions(dng_sdk PUBLIC qDNGUseLibJPEG=1)
 endif()
 if(DNG_WITH_JXL)
-    target_compile_definitions(dng_sdk PRIVATE qDNGUseLibJXL=1)
+    target_compile_definitions(dng_sdk PUBLIC qDNGUseLibJXL=1)
 endif()
-target_compile_definitions(dng_sdk PRIVATE qDNGValidateTarget=0 qDNGValidate=0)
+target_compile_definitions(dng_sdk PRIVATE qDNGValidateTarget=0)
+if(DNG_VALIDATE)
+    target_compile_definitions(dng_sdk PRIVATE qDNGValidate=1)
+endif()
 
 # Link with dependencies
 # Use PUBLIC for static libraries so downstream projects get transitive dependencies
@@ -191,7 +226,6 @@ if(DNG_WITH_JXL)
             PATH_SUFFIXES include
             NO_DEFAULT_PATH
             PATHS ${CMAKE_PREFIX_PATH}
-            REQUIRED
         )
         if(NOT JXL_INCLUDE_DIR)
             # Fallback to system paths if not found in CMAKE_PREFIX_PATH
@@ -255,6 +289,42 @@ if(DNG_WITH_JXL)
         if(NOT JXL_CMS_LIBRARY_RELEASE AND NOT JXL_CMS_LIBRARY_DEBUG)
             find_library(JXL_CMS_LIBRARY_RELEASE NAMES jxl_cms)
             find_library(JXL_CMS_LIBRARY_DEBUG NAMES jxl_cmsd)
+        endif()
+
+        # libjxl_cms depends on lcms2 in many static build setups.
+        set(JXL_CMS_DEP_TARGET "")
+        if(JXL_CMS_LIBRARY_RELEASE OR JXL_CMS_LIBRARY_DEBUG)
+            # Preferred path: use package-provided CMake config.
+            find_package(lcms2 CONFIG QUIET)
+            if(TARGET lcms2::lcms2)
+                set(JXL_CMS_DEP_TARGET lcms2::lcms2)
+            else()
+                # Fallback for environments that only provide raw libraries.
+                find_library(LCMS2_LIBRARY_RELEASE
+                    NAMES lcms2
+                    NO_DEFAULT_PATH
+                    PATHS ${CMAKE_PREFIX_PATH}
+                    PATH_SUFFIXES lib lib64
+                )
+                find_library(LCMS2_LIBRARY_DEBUG
+                    NAMES lcms2d lcms2
+                    NO_DEFAULT_PATH
+                    PATHS ${CMAKE_PREFIX_PATH}
+                    PATH_SUFFIXES lib lib64
+                )
+                if(NOT LCMS2_LIBRARY_RELEASE AND NOT LCMS2_LIBRARY_DEBUG)
+                    find_library(LCMS2_LIBRARY_RELEASE NAMES lcms2)
+                    find_library(LCMS2_LIBRARY_DEBUG NAMES lcms2d lcms2)
+                endif()
+
+                if((LCMS2_LIBRARY_RELEASE OR LCMS2_LIBRARY_DEBUG) AND NOT TARGET lcms2::lcms2)
+                    add_library(lcms2::lcms2 UNKNOWN IMPORTED)
+                    set_imported_library_locations(lcms2::lcms2 "${LCMS2_LIBRARY_RELEASE}" "${LCMS2_LIBRARY_DEBUG}")
+                endif()
+                if(TARGET lcms2::lcms2)
+                    set(JXL_CMS_DEP_TARGET lcms2::lcms2)
+                endif()
+            endif()
         endif()
 
         find_library(HWY_LIBRARY_RELEASE
@@ -325,38 +395,6 @@ if(DNG_WITH_JXL)
             find_library(BROTLI_ENC_LIBRARY_DEBUG NAMES brotliencd)
         endif()
 
-        # Helper function to set imported location for all configurations
-        # Sets IMPORTED_LOCATION_<CONFIG> for Debug, Release, MinSizeRel, RelWithDebInfo
-        function(set_imported_library_locations target release_lib debug_lib)
-            if(release_lib AND debug_lib)
-                # Both debug and release variants exist
-                set_target_properties(${target} PROPERTIES
-                    IMPORTED_LOCATION_RELEASE "${release_lib}"
-                    IMPORTED_LOCATION_MINSIZEREL "${release_lib}"
-                    IMPORTED_LOCATION_RELWITHDEBINFO "${release_lib}"
-                    IMPORTED_LOCATION_DEBUG "${debug_lib}"
-                )
-            elseif(release_lib)
-                # Only release variant exists, use for all configs
-                set_target_properties(${target} PROPERTIES
-                    IMPORTED_LOCATION "${release_lib}"
-                    IMPORTED_LOCATION_RELEASE "${release_lib}"
-                    IMPORTED_LOCATION_MINSIZEREL "${release_lib}"
-                    IMPORTED_LOCATION_RELWITHDEBINFO "${release_lib}"
-                    IMPORTED_LOCATION_DEBUG "${release_lib}"
-                )
-            elseif(debug_lib)
-                # Only debug variant exists, use for all configs
-                set_target_properties(${target} PROPERTIES
-                    IMPORTED_LOCATION "${debug_lib}"
-                    IMPORTED_LOCATION_RELEASE "${debug_lib}"
-                    IMPORTED_LOCATION_MINSIZEREL "${debug_lib}"
-                    IMPORTED_LOCATION_RELWITHDEBINFO "${debug_lib}"
-                    IMPORTED_LOCATION_DEBUG "${debug_lib}"
-                )
-            endif()
-        endfunction()
-
         # Create imported targets with all configuration variants
         if(NOT TARGET jxl::jxl)
             add_library(jxl::jxl UNKNOWN IMPORTED)
@@ -371,6 +409,13 @@ if(DNG_WITH_JXL)
         if((JXL_CMS_LIBRARY_RELEASE OR JXL_CMS_LIBRARY_DEBUG) AND NOT TARGET jxl::jxl_cms)
             add_library(jxl::jxl_cms UNKNOWN IMPORTED)
             set_imported_library_locations(jxl::jxl_cms "${JXL_CMS_LIBRARY_RELEASE}" "${JXL_CMS_LIBRARY_DEBUG}")
+        endif()
+        if(TARGET jxl::jxl_cms)
+            if(JXL_CMS_DEP_TARGET)
+                target_link_libraries(jxl::jxl_cms INTERFACE ${JXL_CMS_DEP_TARGET})
+            else()
+                message(WARNING "Found jxl_cms but could not resolve lcms2 dependency. Static links may fail for jxl_cms users.")
+            endif()
         endif()
 
         if(NOT TARGET hwy::hwy)

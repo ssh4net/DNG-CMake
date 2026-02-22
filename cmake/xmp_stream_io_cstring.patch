@@ -1,0 +1,13 @@
+diff --git a/XMPStream_IO.cpp b/XMPStream_IO.cpp
+index 90fbea9..c7c4a3a
+--- a/XMPStream_IO.cpp
++++ b/XMPStream_IO.cpp
+@@ -30,6 +30,8 @@
+ #include "source/XMP_LibUtils.hpp"
+ 
+ 
++#include <cstring>
++
+ #define TwoGB (XMP_Uns32)(2*1024*1024*1024UL)
+ 
+ #define XMP_STREAMIO_START try { /* int a;*/

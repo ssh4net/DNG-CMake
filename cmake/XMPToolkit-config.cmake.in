@@ -75,17 +75,8 @@ set(XMPToolkit_VERSION "@PROJECT_VERSION@")
 set(XMPToolkit_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@/xmp")
 set(XMPToolkit_LIBRARIES XMP::XMPCoreStatic XMP::XMPFilesStatic)
 
-# Platform-specific definitions that users need to set
-if(WIN32)
-    set(XMPToolkit_DEFINITIONS WIN_ENV XMP_WinBuild XMP_StaticBuild=1)
-elseif(APPLE)
-    if(IOS)
-        set(XMPToolkit_DEFINITIONS IOS_ENV XMP_iOSBuild XMP_StaticBuild=1)
-    else()
-        set(XMPToolkit_DEFINITIONS MAC_ENV XMP_MacBuild XMP_StaticBuild=1)
-    endif()
-else()
-    set(XMPToolkit_DEFINITIONS UNIX_ENV XMP_UNIXBuild XMP_StaticBuild=1)
-endif()
+# Platform-specific definitions that users need to set (also provided via target usage requirements).
+set(XMPToolkit_PLATFORM "@DNG_PLATFORM_ID@")
+set(XMPToolkit_DEFINITIONS @XMP_TOOLKIT_INTERFACE_DEFINITIONS@)
 
 check_required_components(XMPToolkit)

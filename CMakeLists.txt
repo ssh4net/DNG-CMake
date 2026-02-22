@@ -1,6 +1,99 @@
 cmake_minimum_required(VERSION 3.16)
 project(dng_sdk VERSION 1.7.1 LANGUAGES C CXX)
 
+# Target platform selection for DNG SDK/XMP preprocessor macros (mainly to support consumers).
+# This controls the DNG SDK "q*" platform macros and XMP toolkit "*_ENV"/"XMP_*Build" macros.
+set(DNG_TARGET_PLATFORM "auto" CACHE STRING "Platform for exported DNG/XMP preprocessor macros (auto, windows, macos, ios, linux, android, web)")
+set_property(CACHE DNG_TARGET_PLATFORM PROPERTY STRINGS auto windows macos ios linux android web)
+
+# Resolve platform id (prefer explicit override; otherwise infer from toolchain variables).
+set(_dng_inferred_platform_id "")
+if(EMSCRIPTEN)
+    set(_dng_inferred_platform_id "web")
+elseif(ANDROID)
+    set(_dng_inferred_platform_id "android")
+elseif(APPLE AND (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS"))
+    set(_dng_inferred_platform_id "ios")
+elseif(APPLE)
+    set(_dng_inferred_platform_id "macos")
+elseif(WIN32)
+    set(_dng_inferred_platform_id "windows")
+elseif(UNIX)
+    set(_dng_inferred_platform_id "linux")
+else()
+    message(FATAL_ERROR "Unable to determine platform automatically. Set -DDNG_TARGET_PLATFORM=windows|macos|ios|linux|android|web.")
+endif()
+
+set(_dng_platform_id "${_dng_inferred_platform_id}")
+if(DNG_TARGET_PLATFORM AND NOT DNG_TARGET_PLATFORM STREQUAL "auto")
+    set(_dng_platform_id "${DNG_TARGET_PLATFORM}")
+    if(NOT _dng_platform_id STREQUAL _dng_inferred_platform_id)
+        message(WARNING "DNG_TARGET_PLATFORM='${DNG_TARGET_PLATFORM}' overrides inferred platform '${_dng_inferred_platform_id}'. Ensure this matches the binaries you are building/installing.")
+    endif()
+endif()
+
+if(NOT _dng_platform_id MATCHES "^(windows|macos|ios|linux|android|web)$")
+    message(FATAL_ERROR "Invalid DNG_TARGET_PLATFORM='${DNG_TARGET_PLATFORM}'. Expected: auto, windows, macos, ios, linux, android, web.")
+endif()
+
+set(DNG_PLATFORM_ID "${_dng_platform_id}" CACHE INTERNAL "Resolved platform id for DNG/XMP macros")
+
+# DNG SDK platform macros (must define one of qMacOS/qWinOS/qAndroid/qiPhone/qLinux/qWeb as 1).
+set(DNG_SDK_PLATFORM_QDEFS
+    qMacOS=0
+    qiPhone=0
+    qAndroid=0
+    qWinOS=0
+    qLinux=0
+    qWeb=0
+)
+if(DNG_PLATFORM_ID STREQUAL "windows")
+    list(REMOVE_ITEM DNG_SDK_PLATFORM_QDEFS qWinOS=0)
+    list(APPEND DNG_SDK_PLATFORM_QDEFS qWinOS=1)
+elseif(DNG_PLATFORM_ID STREQUAL "macos")
+    list(REMOVE_ITEM DNG_SDK_PLATFORM_QDEFS qMacOS=0)
+    list(APPEND DNG_SDK_PLATFORM_QDEFS qMacOS=1)
+elseif(DNG_PLATFORM_ID STREQUAL "ios")
+    list(REMOVE_ITEM DNG_SDK_PLATFORM_QDEFS qiPhone=0)
+    list(APPEND DNG_SDK_PLATFORM_QDEFS qiPhone=1)
+elseif(DNG_PLATFORM_ID STREQUAL "android")
+    list(REMOVE_ITEM DNG_SDK_PLATFORM_QDEFS qAndroid=0)
+    list(APPEND DNG_SDK_PLATFORM_QDEFS qAndroid=1)
+elseif(DNG_PLATFORM_ID STREQUAL "web")
+    list(REMOVE_ITEM DNG_SDK_PLATFORM_QDEFS qWeb=0)
+    list(APPEND DNG_SDK_PLATFORM_QDEFS qWeb=1)
+elseif(DNG_PLATFORM_ID STREQUAL "linux")
+    list(REMOVE_ITEM DNG_SDK_PLATFORM_QDEFS qLinux=0)
+    list(APPEND DNG_SDK_PLATFORM_QDEFS qLinux=1)
+endif()
+
+# Additional DNG-related platform macros used by upstream VS/Xcode projects.
+set(DNG_SDK_PLATFORM_DEFINITIONS ${DNG_SDK_PLATFORM_QDEFS})
+if(DNG_PLATFORM_ID STREQUAL "windows")
+    list(APPEND DNG_SDK_PLATFORM_DEFINITIONS
+        qVisualC=1
+        _WINDOWS=1
+        WIN32
+    )
+else()
+    list(APPEND DNG_SDK_PLATFORM_DEFINITIONS qVisualC=0)
+endif()
+
+# XMP toolkit platform macros expected by public headers and consumers.
+if(DNG_PLATFORM_ID STREQUAL "windows")
+    set(XMP_TOOLKIT_INTERFACE_DEFINITIONS WIN_ENV XMP_WinBuild XMP_StaticBuild=1)
+elseif(DNG_PLATFORM_ID STREQUAL "macos")
+    set(XMP_TOOLKIT_INTERFACE_DEFINITIONS MAC_ENV XMP_MacBuild XMP_StaticBuild=1)
+elseif(DNG_PLATFORM_ID STREQUAL "ios")
+    set(XMP_TOOLKIT_INTERFACE_DEFINITIONS IOS_ENV XMP_iOSBuild XMP_StaticBuild=1)
+elseif(DNG_PLATFORM_ID STREQUAL "android")
+    set(XMP_TOOLKIT_INTERFACE_DEFINITIONS ANDROID_ENV XMP_AndroidBuild XMP_StaticBuild=1)
+elseif(DNG_PLATFORM_ID STREQUAL "web")
+    set(XMP_TOOLKIT_INTERFACE_DEFINITIONS WEB_ENV XMP_WebBuild XMP_StaticBuild=1)
+else()
+    set(XMP_TOOLKIT_INTERFACE_DEFINITIONS UNIX_ENV XMP_UNIXBuild XMP_StaticBuild=1)
+endif()
+
 # Preserve important cache variables across reconfigurations
 if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE STRING "MSVC runtime library")
@@ -19,6 +112,11 @@ if(NOT DEFINED CMAKE_INSTALL_PREFIX)
     set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install" CACHE PATH "Installation directory")
 endif()
 
+if(NOT DEFINED DNG_CLANG_STDLIB)
+    set(DNG_CLANG_STDLIB "default" CACHE STRING "Clang C++ standard library selection: default, libstdc++, libc++")
+endif()
+set_property(CACHE DNG_CLANG_STDLIB PROPERTY STRINGS default libstdc++ libc++)
+
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,9 +131,15 @@ endif()
 
 # Use clang if requested (exclude clang-cl on Windows/MSVC toolchain)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT MSVC)
-    message(STATUS "Using Clang compiler with libc++")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+    if(DNG_CLANG_STDLIB STREQUAL "default")
+        message(STATUS "Using Clang compiler with toolchain default C++ standard library")
+    elseif(DNG_CLANG_STDLIB STREQUAL "libc++" OR DNG_CLANG_STDLIB STREQUAL "libstdc++")
+        message(STATUS "Using Clang compiler with ${DNG_CLANG_STDLIB}")
+        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=${DNG_CLANG_STDLIB}>)
+        add_link_options(-stdlib=${DNG_CLANG_STDLIB})
+    else()
+        message(FATAL_ERROR "Invalid DNG_CLANG_STDLIB='${DNG_CLANG_STDLIB}'. Expected: default, libstdc++, libc++.")
+    endif()
 endif()
 
 # Build options (portable, align with VS solution defaults)
@@ -96,12 +200,6 @@ else()
     add_compile_definitions(qDNGReportErrors=0)
 endif()
 
-if(DNG_VALIDATE)
-    add_compile_definitions(qDNGValidate=1)
-else()
-    add_compile_definitions(qDNGValidate=0)
-endif()
-
 if(DNG_DEBUG_PIXEL_TYPE)
     add_compile_definitions(qDebugPixelType=1)
 else()
@@ -120,31 +218,8 @@ else()
     add_compile_definitions(qOptGetBitsMath=0)
 endif()
 
-# Platform-specific preprocessor macros to mirror Visual Studio projects
-if(WIN32)
-    add_compile_definitions(
-        qWinOS=1
-        qMacOS=0
-        qLinuxOS=0
-        qVisualC=1
-        _WINDOWS=1
-        WIN32
-    )
-elseif(APPLE)
-    add_compile_definitions(
-        qWinOS=0
-        qMacOS=1
-        qLinuxOS=0
-        qVisualC=0
-    )
-else()
-    add_compile_definitions(
-        qWinOS=0
-        qMacOS=0
-        qLinuxOS=1
-        qVisualC=0
-    )
-endif()
+# DNG SDK / consumer platform macros (qWinOS/qMacOS/qLinux/qiPhone/qAndroid/qWeb)
+add_compile_definitions(${DNG_SDK_PLATFORM_DEFINITIONS})
 
 # Platform-specific settings
 # Use generator expressions for multi-config generators (VS, Xcode)
@@ -346,7 +421,7 @@ if(DNG_WITH_JPEG AND NOT DNG_BUNDLED_JPEG)
     set(DNG_SDK_PC_CFLAGS "${DNG_SDK_PC_CFLAGS} -DqDNGUseLibJPEG=1")
 endif()
 if(DNG_WITH_JXL AND NOT DNG_BUNDLED_JXL)
-    list(APPEND DNG_SDK_PC_REQUIRES_PRIVATE "libjxl" "libjxl_threads" "libhwy" "libbrotlicommon" "libbrotlidec" "libbrotlienc")
+    list(APPEND DNG_SDK_PC_REQUIRES_PRIVATE "libjxl" "libjxl_threads" "libhwy" "libbrotlicommon" "libbrotlidec" "libbrotlienc" "lcms2")
     set(DNG_SDK_PC_CFLAGS "${DNG_SDK_PC_CFLAGS} -DqDNGUseLibJXL=1 -DJXL_STATIC_DEFINE=1")
 endif()
 if(DNG_THREAD_SAFE)
@@ -355,19 +430,22 @@ else()
     set(DNG_SDK_PC_CFLAGS "${DNG_SDK_PC_CFLAGS} -DBIB_MULTI_THREAD=0")
 endif()
 
+# Ensure consumers get correct DNG platform macros even when using pkg-config.
+foreach(_def IN LISTS DNG_SDK_PLATFORM_QDEFS)
+    string(APPEND DNG_SDK_PC_CFLAGS " -D${_def}")
+endforeach()
+string(STRIP "${DNG_SDK_PC_CFLAGS}" DNG_SDK_PC_CFLAGS)
+
 # Convert lists to space-separated strings
 string(REPLACE ";" " " DNG_SDK_PC_REQUIRES "${DNG_SDK_PC_REQUIRES}")
 string(REPLACE ";" " " DNG_SDK_PC_REQUIRES_PRIVATE "${DNG_SDK_PC_REQUIRES_PRIVATE}")
 
 # XMP pkg-config variables
 set(XMP_PC_CFLAGS "")
-if(WIN32)
-    set(XMP_PC_CFLAGS "-DWIN_ENV -DXMP_WinBuild")
-elseif(APPLE)
-    set(XMP_PC_CFLAGS "-DMAC_ENV -DXMP_MacBuild")
-else()
-    set(XMP_PC_CFLAGS "-DUNIX_ENV -DXMP_UNIXBuild")
-endif()
+foreach(_def IN LISTS XMP_TOOLKIT_INTERFACE_DEFINITIONS)
+    string(APPEND XMP_PC_CFLAGS " -D${_def}")
+endforeach()
+string(STRIP "${XMP_PC_CFLAGS}" XMP_PC_CFLAGS)
 
 # Configure pkg-config files
 configure_file(
@@ -401,6 +479,50 @@ if(DNG_WITH_XMP)
         ${CMAKE_CURRENT_BINARY_DIR}/XMPFilesStatic.pc
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
     )
+endif()
+
+# Apply portability patch to XMPStream_IO.cpp (libstdc++ requires <cstring> for memcpy).
+if(DNG_WITH_XMP)
+    set(XMP_PATCH_FILE "${CMAKE_SOURCE_DIR}/cmake/xmp_stream_io_cstring.patch")
+    set(XMP_TARGET_FILE "${CMAKE_SOURCE_DIR}/xmp/toolkit/source/XMPStream_IO.cpp")
+
+    execute_process(
+        COMMAND git apply --check --reverse --unsafe-paths --directory=xmp/toolkit/source ${XMP_PATCH_FILE}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        RESULT_VARIABLE XMP_PATCH_ALREADY_APPLIED
+        OUTPUT_QUIET
+        ERROR_QUIET
+    )
+
+    if(XMP_PATCH_ALREADY_APPLIED EQUAL 0)
+        message(STATUS "Patch xmp_stream_io_cstring.patch: Already applied to ${XMP_TARGET_FILE}")
+    else()
+        execute_process(
+            COMMAND git apply --check --unsafe-paths --directory=xmp/toolkit/source ${XMP_PATCH_FILE}
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            RESULT_VARIABLE XMP_PATCH_CHECK_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+
+        if(XMP_PATCH_CHECK_RESULT EQUAL 0)
+            execute_process(
+                COMMAND git apply --unsafe-paths --directory=xmp/toolkit/source ${XMP_PATCH_FILE}
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                RESULT_VARIABLE XMP_PATCH_APPLY_RESULT
+                OUTPUT_VARIABLE XMP_PATCH_OUTPUT
+                ERROR_VARIABLE XMP_PATCH_ERROR
+            )
+
+            if(XMP_PATCH_APPLY_RESULT EQUAL 0)
+                message(STATUS "Patch xmp_stream_io_cstring.patch: Successfully applied to ${XMP_TARGET_FILE}")
+            else()
+                message(WARNING "Patch xmp_stream_io_cstring.patch: Failed to apply\n${XMP_PATCH_ERROR}")
+            endif()
+        else()
+            message(WARNING "Patch xmp_stream_io_cstring.patch: Cannot apply - file may be modified or in unexpected state")
+        endif()
+    endif()
 endif()
 
 # Apply patch to dng_jxl.cpp if needed
