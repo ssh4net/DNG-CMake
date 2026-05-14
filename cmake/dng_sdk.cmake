@@ -29,7 +29,6 @@ add_library(dng_sdk STATIC
     ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_iptc.cpp
     ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_jpeg_image.cpp
     ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_jpeg_memory_source.cpp
-    ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_jxl.cpp
     ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_lens_correction.cpp
     ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_linearization_info.cpp
     ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_local_string.cpp
@@ -74,6 +73,13 @@ add_library(dng_sdk STATIC
     ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_xmp_sdk.cpp
     ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_xy_coord.cpp
 )
+
+# OIIO_BUILDER_DNGSDK_JXL_GUARD_BEGIN
+if(DNG_WITH_JXL)
+    target_sources(dng_sdk PRIVATE ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_jxl.cpp)
+endif()
+# OIIO_BUILDER_DNGSDK_JXL_GUARD_END
+
 
 set_target_properties(dng_sdk PROPERTIES
     DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
@@ -121,13 +127,9 @@ if(DEFINED DNG_SDK_PLATFORM_QDEFS)
     target_compile_definitions(dng_sdk PUBLIC ${DNG_SDK_PLATFORM_QDEFS})
 endif()
 
-# Ensure validator globals (gVerbose, gDumpLineLimit) are linked from the library
-# by forcing qDNGValidate for dng_globals.cpp only, mirroring VS validate build behavior.
-set_source_files_properties(
-    ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_globals.cpp
-    PROPERTIES COMPILE_DEFINITIONS "qDNGValidate=1"
-)
-
+# DNG_VALIDATE controls validation code in the dng_sdk library only.
+# BUILD_DNG_VALIDATE builds the validator executable through
+# cmake/dng_validate.cmake without forcing validation into this library.
 
 # DNG SDK specific definitions from top-level options
 if(DNG_WITH_XMP)
@@ -146,7 +148,13 @@ if(DNG_WITH_JXL)
     target_compile_definitions(dng_sdk PUBLIC qDNGUseLibJXL=1)
 endif()
 target_compile_definitions(dng_sdk PRIVATE qDNGValidateTarget=0)
-if(DNG_VALIDATE)
+string(TOUPPER "${DNG_VALIDATE}" DNG_VALIDATE_MODE)
+if(NOT DNG_VALIDATE_MODE MATCHES "^(AUTO|ON|OFF|TRUE|FALSE|YES|NO|1|0)$")
+    message(FATAL_ERROR "Invalid DNG_VALIDATE='${DNG_VALIDATE}'. Expected AUTO, ON, or OFF.")
+endif()
+if(DNG_VALIDATE_MODE STREQUAL "AUTO")
+    target_compile_definitions(dng_sdk PRIVATE $<$<CONFIG:Debug>:qDNGValidate=1>)
+elseif(DNG_VALIDATE)
     target_compile_definitions(dng_sdk PRIVATE qDNGValidate=1)
 endif()
 

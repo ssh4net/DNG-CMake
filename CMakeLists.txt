@@ -143,7 +143,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT MSVC)
 endif()
 
 # Build options (portable, align with VS solution defaults)
-option(BUILD_DNG_VALIDATE "Build the dng_validate tool" ON)
+option(BUILD_DNG_VALIDATE "Build the dng_validate tool (independent from library validation)" ON)
 option(BUILD_DOCUMENTATION "Build API documentation with Doxygen" OFF)
 option(DNG_THREAD_SAFE "Enable thread-safe DNG SDK (BIB_MULTI_THREAD)" ON)
 option(DNG_WITH_JPEG "Enable libjpeg usage in DNG SDK" ON)
@@ -158,7 +158,8 @@ option(XMP_USE_SYSTEM_BOOST "Use system Boost UUID headers instead of bundled co
 
 # DNG SDK debug and diagnostic options
 option(DNG_REPORT_ERRORS "Enable error reporting (qDNGReportErrors)" ON)
-option(DNG_VALIDATE "Enable validation checks (qDNGValidate)" OFF)
+set(DNG_VALIDATE "AUTO" CACHE STRING "Enable validation checks in the dng_sdk library: AUTO=Debug only, ON=all configs, OFF=disabled")
+set_property(CACHE DNG_VALIDATE PROPERTY STRINGS AUTO ON OFF)
 option(DNG_DEBUG_PIXEL_TYPE "Enable pixel type debugging (qDebugPixelType)" OFF)
 option(DNG_LOG_UPDATE_METADATA "Log metadata update operations (qLogDNGUpdateMetadata)" OFF)
 option(DNG_OPT_GETBITS_MATH "Use optimized bit extraction math (qOptGetBitsMath)" OFF)

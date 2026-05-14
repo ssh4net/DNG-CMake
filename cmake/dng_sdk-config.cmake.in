@@ -18,6 +18,31 @@ function(set_imported_location_all_configs target location)
     endif()
 endfunction()
 
+# Helper function to set imported library locations for single- and multi-config consumers.
+function(set_imported_location_configured target release_location debug_location)
+    set(_release "${release_location}")
+    set(_debug "${debug_location}")
+    if(NOT _release AND _debug)
+        set(_release "${_debug}")
+    endif()
+    if(NOT _debug AND _release)
+        set(_debug "${_release}")
+    endif()
+    set(_any "${_release}")
+    if(NOT _any)
+        set(_any "${_debug}")
+    endif()
+    if(_any)
+        set_target_properties(${target} PROPERTIES
+            IMPORTED_LOCATION "${_any}"
+            IMPORTED_LOCATION_RELEASE "${_release}"
+            IMPORTED_LOCATION_MINSIZEREL "${_release}"
+            IMPORTED_LOCATION_RELWITHDEBINFO "${_release}"
+            IMPORTED_LOCATION_DEBUG "${_debug}"
+        )
+    endif()
+endfunction()
+
 # Find required dependencies for static builds
 find_dependency(Threads REQUIRED)
 
@@ -36,41 +61,70 @@ if(@DNG_WITH_JXL@)
     if(NOT libjxl_FOUND)
         # Fallback: resolve required libraries directly without pkg-config.
         # This avoids propagating stale include paths from third-party .pc files.
-        find_library(JXL_LIBRARY NAMES jxl REQUIRED)
-        find_library(JXL_THREADS_LIBRARY NAMES jxl_threads REQUIRED)
-        find_library(JXL_CMS_LIBRARY NAMES jxl_cms)
-        find_library(HWY_LIBRARY NAMES hwy REQUIRED)
-        find_library(BROTLI_COMMON_LIBRARY NAMES brotlicommon REQUIRED)
-        find_library(BROTLI_DEC_LIBRARY NAMES brotlidec REQUIRED)
-        find_library(BROTLI_ENC_LIBRARY NAMES brotlienc REQUIRED)
+        # OIIO_BUILDER_JXL_DEBUG_LIBRARY_NAMES_BEGIN
+        # Windows Debug installs commonly use a "d" postfix (jxld.lib, hwyd.lib,
+        # brotlicommond.lib). Find both config-specific names and expose them on
+        # imported targets; non-Windows installs keep using the normal names.
+        macro(_dng_find_dependency_library _var _release_name _debug_name)
+            set(_required FALSE)
+            foreach(_arg ${ARGN})
+                if(_arg STREQUAL "REQUIRED")
+                    set(_required TRUE)
+                endif()
+            endforeach()
+            find_library(${_var}_RELEASE NAMES ${_release_name})
+            find_library(${_var}_DEBUG NAMES ${_debug_name} ${_release_name})
+            if(NOT ${_var}_RELEASE AND ${_var}_DEBUG)
+                set(${_var}_RELEASE "${${_var}_DEBUG}")
+            endif()
+            if(NOT ${_var}_DEBUG AND ${_var}_RELEASE)
+                set(${_var}_DEBUG "${${_var}_RELEASE}")
+            endif()
+            set(${_var} "${${_var}_DEBUG}")
+            if(NOT ${_var})
+                set(${_var} "${${_var}_RELEASE}")
+            endif()
+            if(_required AND NOT ${_var}_RELEASE AND NOT ${_var}_DEBUG)
+                message(FATAL_ERROR "Could not find ${_var} using names: ${_release_name}, ${_debug_name}")
+            endif()
+        endmacro()
+
+        _dng_find_dependency_library(JXL_LIBRARY jxl jxld REQUIRED)
+        _dng_find_dependency_library(JXL_THREADS_LIBRARY jxl_threads jxl_threadsd REQUIRED)
+        _dng_find_dependency_library(JXL_CMS_LIBRARY jxl_cms jxl_cmsd)
+        _dng_find_dependency_library(HWY_LIBRARY hwy hwyd REQUIRED)
+        _dng_find_dependency_library(BROTLI_COMMON_LIBRARY brotlicommon brotlicommond REQUIRED)
+        _dng_find_dependency_library(BROTLI_DEC_LIBRARY brotlidec brotlidecd REQUIRED)
+        _dng_find_dependency_library(BROTLI_ENC_LIBRARY brotlienc brotliencd REQUIRED)
+        # OIIO_BUILDER_JXL_DEBUG_LIBRARY_NAMES_END
 
         if(JXL_LIBRARY AND NOT TARGET jxl::jxl)
             add_library(jxl::jxl UNKNOWN IMPORTED)
-            set_imported_location_all_configs(jxl::jxl "${JXL_LIBRARY}")
+            set_imported_location_configured(jxl::jxl "${JXL_LIBRARY_RELEASE}" "${JXL_LIBRARY_DEBUG}")
         endif()
         if(JXL_THREADS_LIBRARY AND NOT TARGET jxl::jxl_threads)
             add_library(jxl::jxl_threads UNKNOWN IMPORTED)
-            set_imported_location_all_configs(jxl::jxl_threads "${JXL_THREADS_LIBRARY}")
+            set_imported_location_configured(jxl::jxl_threads "${JXL_THREADS_LIBRARY_RELEASE}" "${JXL_THREADS_LIBRARY_DEBUG}")
         endif()
         if(JXL_CMS_LIBRARY AND NOT TARGET jxl::jxl_cms)
             add_library(jxl::jxl_cms UNKNOWN IMPORTED)
-            set_imported_location_all_configs(jxl::jxl_cms "${JXL_CMS_LIBRARY}")
+            set_imported_location_configured(jxl::jxl_cms "${JXL_CMS_LIBRARY_RELEASE}" "${JXL_CMS_LIBRARY_DEBUG}")
         endif()
         if(HWY_LIBRARY AND NOT TARGET hwy::hwy)
             add_library(hwy::hwy UNKNOWN IMPORTED)
-            set_imported_location_all_configs(hwy::hwy "${HWY_LIBRARY}")
+            set_imported_location_configured(hwy::hwy "${HWY_LIBRARY_RELEASE}" "${HWY_LIBRARY_DEBUG}")
         endif()
         if(BROTLI_COMMON_LIBRARY AND NOT TARGET brotli::brotlicommon)
             add_library(brotli::brotlicommon UNKNOWN IMPORTED)
-            set_imported_location_all_configs(brotli::brotlicommon "${BROTLI_COMMON_LIBRARY}")
+            set_imported_location_configured(brotli::brotlicommon "${BROTLI_COMMON_LIBRARY_RELEASE}" "${BROTLI_COMMON_LIBRARY_DEBUG}")
         endif()
         if(BROTLI_DEC_LIBRARY AND NOT TARGET brotli::brotlidec)
             add_library(brotli::brotlidec UNKNOWN IMPORTED)
-            set_imported_location_all_configs(brotli::brotlidec "${BROTLI_DEC_LIBRARY}")
+            set_imported_location_configured(brotli::brotlidec "${BROTLI_DEC_LIBRARY_RELEASE}" "${BROTLI_DEC_LIBRARY_DEBUG}")
         endif()
         if(BROTLI_ENC_LIBRARY AND NOT TARGET brotli::brotlienc)
             add_library(brotli::brotlienc UNKNOWN IMPORTED)
-            set_imported_location_all_configs(brotli::brotlienc "${BROTLI_ENC_LIBRARY}")
+            set_imported_location_configured(brotli::brotlienc "${BROTLI_ENC_LIBRARY_RELEASE}" "${BROTLI_ENC_LIBRARY_DEBUG}")
         endif()
     endif()
 
@@ -90,6 +144,18 @@ if(@DNG_WITH_JXL@)
         if(NOT _dng_lcms2_release AND NOT _dng_lcms2_debug)
             find_library(_dng_lcms2_release NAMES lcms2)
         endif()
+
+        # OIIO_BUILDER_LCMS2_LOCATION_FALLBACK_BEGIN
+        # Some installs expose only one configuration for lcms2::lcms2.
+        # Mirror the available location so imported targets are valid
+        # across single- and multi-config generators.
+        if(NOT _dng_lcms2_release AND _dng_lcms2_debug)
+            set(_dng_lcms2_release "${_dng_lcms2_debug}")
+        endif()
+        if(NOT _dng_lcms2_debug AND _dng_lcms2_release)
+            set(_dng_lcms2_debug "${_dng_lcms2_release}")
+        endif()
+        # OIIO_BUILDER_LCMS2_LOCATION_FALLBACK_END
 
         if((_dng_lcms2_release OR _dng_lcms2_debug) AND NOT TARGET dng_sdk::lcms2)
             add_library(dng_sdk::lcms2 UNKNOWN IMPORTED)

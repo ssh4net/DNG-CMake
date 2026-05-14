@@ -41,6 +41,36 @@ if(NOT EXPAT_FOUND)
     endif()
 endif()
 
+# OIIO_BUILDER_EXPAT_TARGET_BEGIN
+if(NOT TARGET EXPAT::EXPAT)
+    if(TARGET expat::expat)
+        add_library(EXPAT::EXPAT ALIAS expat::expat)
+    elseif(TARGET PkgConfig::EXPAT)
+        add_library(EXPAT::EXPAT ALIAS PkgConfig::EXPAT)
+    elseif(EXPAT_LIBRARY)
+        add_library(EXPAT::EXPAT UNKNOWN IMPORTED)
+        set_imported_location_all_configs(EXPAT::EXPAT "${EXPAT_LIBRARY}")
+        if(EXPAT_INCLUDE_DIR)
+            set_target_properties(EXPAT::EXPAT PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${EXPAT_INCLUDE_DIR}"
+            )
+        elseif(EXPAT_INCLUDE_DIRS)
+            set_target_properties(EXPAT::EXPAT PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${EXPAT_INCLUDE_DIRS}"
+            )
+        endif()
+    elseif(EXPAT_LIBRARIES)
+        add_library(EXPAT::EXPAT INTERFACE IMPORTED)
+        set_property(TARGET EXPAT::EXPAT PROPERTY INTERFACE_LINK_LIBRARIES ${EXPAT_LIBRARIES})
+        if(EXPAT_INCLUDE_DIR)
+            set_property(TARGET EXPAT::EXPAT PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${EXPAT_INCLUDE_DIR}")
+        elseif(EXPAT_INCLUDE_DIRS)
+            set_property(TARGET EXPAT::EXPAT PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${EXPAT_INCLUDE_DIRS}")
+        endif()
+    endif()
+endif()
+# OIIO_BUILDER_EXPAT_TARGET_END
+
 # Zlib compression library
 find_package(ZLIB QUIET)
 if(NOT ZLIB_FOUND)
@@ -59,6 +89,34 @@ if(NOT ZLIB_FOUND)
         endif()
     endif()
 endif()
+
+# OIIO_BUILDER_ZLIB_TARGET_BEGIN
+if(NOT TARGET ZLIB::ZLIB)
+    if(TARGET PkgConfig::ZLIB)
+        add_library(ZLIB::ZLIB ALIAS PkgConfig::ZLIB)
+    elseif(ZLIB_LIBRARY)
+        add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
+        set_imported_location_all_configs(ZLIB::ZLIB "${ZLIB_LIBRARY}")
+        if(ZLIB_INCLUDE_DIR)
+            set_target_properties(ZLIB::ZLIB PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIR}"
+            )
+        elseif(ZLIB_INCLUDE_DIRS)
+            set_target_properties(ZLIB::ZLIB PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIRS}"
+            )
+        endif()
+    elseif(ZLIB_LIBRARIES)
+        add_library(ZLIB::ZLIB INTERFACE IMPORTED)
+        set_property(TARGET ZLIB::ZLIB PROPERTY INTERFACE_LINK_LIBRARIES ${ZLIB_LIBRARIES})
+        if(ZLIB_INCLUDE_DIR)
+            set_property(TARGET ZLIB::ZLIB PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIR}")
+        elseif(ZLIB_INCLUDE_DIRS)
+            set_property(TARGET ZLIB::ZLIB PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIRS}")
+        endif()
+    endif()
+endif()
+# OIIO_BUILDER_ZLIB_TARGET_END
 
 # Include the targets file - this creates the XMP::* targets
 # CMake automatically generates XMPToolkit-targets-<config>.cmake for each build configuration

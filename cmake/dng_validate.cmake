@@ -3,6 +3,12 @@ add_executable(dng_validate
     ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_validate.cpp
 )
 
+# dng_validate owns its validation globals independently from dng_sdk.
+# This keeps BUILD_DNG_VALIDATE separate from the DNG_VALIDATE library option.
+target_sources(dng_validate PRIVATE
+    ${CMAKE_SOURCE_DIR}/dng_sdk/source/dng_globals.cpp
+)
+
 set_target_properties(dng_validate PROPERTIES
     DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
 )
